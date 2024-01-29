@@ -62,7 +62,7 @@ g_explicit = function(time, state)
 
 g_implicit = function(time, state)
 {
-  return(state+dt/2*(((sin(time)+1-alpha*state)/A)+(sin(time)+1-alpha*g_explicit(time,state))/A))
+  return(state+dt/2*(((sin(time)+1-alpha*state)/A)+(sin(time)+1-alpha*g_explicit(time+dt,state))/A))
   
 }
 
