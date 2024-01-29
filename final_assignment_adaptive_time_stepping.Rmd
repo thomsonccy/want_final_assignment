@@ -1,0 +1,88 @@
+---
+title: "Final assignment: Adaptive Time Stepping"
+author: "The WANT team"
+date: "19/01/2020"
+output:
+  html_document:
+    css: want.css
+    toc: yes
+    toc_depth: 1
+---
+
+
+# Introduction
+During the exercises on Finite Differences, you have experienced several times that the model can become instable or at least can start oscillating. Often, this could be resolved with decreasing the time step over which the calculation was performed. This is, however, a rather expensive solution, because a smaller time step means many more calculations while maybe, this smaller time step is not needed throughout the complete simulation period. Therefore, adaptive time stepping schemes exist; when needed, a smaller time step is taken, and when not needed, the time step is increased again.  
+
+# The model 
+We will implement an adaptive time stepping scheme for the most simple model we dealt with; the emptying reservoir without input. 
+
+![](reservoir_properties.png)
+
+*Single linear reservoir with outlet properties.*  
+
+# First assignment
+Implement an adaptive time stepping scheme. For this, you have to define criteria for when the time step has to decrease (and how much). This can be based on the difference between two schemes. However, you don't want to do the same calculation twice, because then you might as well half the step size directly. Therefore, use two schemes where one scheme is an intergral part of the other scheme. The simplest example is Euler Forward and Heun's Method. Heun's Method looks as follows:
+
+$$\widetilde{s}= s(t) + \Delta t f(t,s(t))$$
+
+Where $\tilde{s}$ is a sub-step equal to Euler Forward. Subsequently, $t+\Delta t$ is obtained as:
+$$ s(t+\Delta t)= s(t) + \frac{\Delta t}{2}(f(t,s(t))+f(t+\Delta t,\widetilde{s}))$$
+Another option is for instance the Cash-Karp method, where two Runge-Kutta schemes are compared. Implement the schemes, define an error tolerance, and adapt the time step when the error exceeds this tolerance. Compare your results to the analytical solution, to evaluate the trade-off between error and number of evaluations. 
+
+# Second assignment
+Conduct a sensitivity analysis. 
+- Decide for yourself whether you want to conduct a local or global sensitivity analysis.
+- Decide on which parameters you want to conduct sensitivity analysis - the parameters from the reservoir, or the parameters of your adaptive time stepping scheme, or both and their interaction? 
+
+# Further exploration
+You are free to explore any other questions that arise with the model. For example:
+- Use variable input, such as the Hupsel data from assignment 6, week 1. What are the water balance errors and do these decrease with a variable time stepping scheme? 
+- What happens to the results if you add complexity to my model? (e.g. by introducing a second outlet)
+- What is the relation between time steps and parameter sensitivity?
+
+```{R}
+# system function
+sys.fun = function(state)
+{
+    newstate = state + dt/A*(-alpha*state)
+    return(newstate)
+}
+
+# Initial parameter values
+begin.time = 0     # usually this variable is set to 0
+end.time   = 50    # end time of the simulation 
+dt         = 2.5   # delta t; time discretisation 
+init.state = 3     # state of the system at the beginning of the simulation 
+
+# reservoir parameter values
+A         = 4.0   # area
+alpha     = 1.5  # decay constant
+
+# Simulation initialisation
+time = begin.time
+result.state = c(init.state)
+result.time = c(time)
+current.state = init.state
+
+# Simulation
+while(time < end.time)
+{
+    current.state = sys.fun(current.state)
+    result.state = c(result.state,current.state)
+    time = time + dt
+    result.time = c(result.time,time)
+}
+
+# Analytical solution
+time.sequence = seq(begin.time,end.time, by=0.1)
+analyt.state=init.state * exp(-time.sequence*alpha/A)
+
+# Plotting
+plot(result.time, result.state,type='o', xlab="time", ylab="state")
+lines(time.sequence, analyt.state, col='grey', lwd=2)
+title(main='Emptying reservoir')
+grid()
+
+# Number of function evaluations
+num_eval = length(result.time)
+```
