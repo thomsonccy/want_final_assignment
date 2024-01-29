@@ -47,86 +47,99 @@ You are free to explore any other questions that arise with the model. For examp
 $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 \left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
 
-```{R}
-# Install package
-  if (!"DescTools" %in% installed.packages()) {install.packages("DescTools")}
-  library(DescTools)
 
-
-```
 
 ```{R}
-# system function
+# Calculate water level in reservoir using Euler Forward and Heun's Method
+# Compare the absolute difference between Euler Forward and Heun's Method
+# If difference is smaller than tolerance, the result from Heun's method is accepted
+# If difference is larger than tolerance, it recalculates using 
+# new time step = old time step * factor
+# until the difference is smaller than tolerance
 
-calculate_heuns_method = function(state)
-{
-    s_bar= state + dt/A *(-alpha * state)
-    newstate = state + dt/(2*A) *((-alpha*state)  - alpha * s_bar) 
-    return(newstate)
-}
-
-calculate_forward_method = function(state)
-{
+calculate_euler_forward_method = function(state) {
     forward = state + dt/A *(-alpha * state)
     return(forward)
 }
 
-factor = 0.95
-tolerance = 0.01
+calculate_heuns_method = function(state) {
+    s_tilde= state + dt/A *(-alpha * state)
+    newstate = state + dt/(2*A) *((-alpha*state)  - alpha * s_tilde) 
+    return(newstate)
+}
+
 # Initial parameter values
-begin.time = 0     # usually this variable is set to 0
-end.time   = 50    # end time of the simulation 
+begin_time = 0     # usually this variable is set to 0
+end_time   = 50    # end time of the simulation 
 dt_start   = 5   # delta t; time discretisation 
-init.state = 3     # state of the system at the beginning of the simulation 
+initial_state = 3     # state of the system at the beginning of the simulation 
 
 # reservoir parameter values
 A         = 4.0   # area
 alpha     = 1.5  # decay constant
 
+# variable time-step parameter values
+factor = 0.95
+tolerance = 0.01
+
 # Simulation initialisation
-time = begin.time
-result.state = c(init.state)
-result.time = c(time)
-current.state = init.state
+time = begin_time
+result_state = c(initial_state)
+result_time = c(time)
+current_state = initial_state
 
 # Simulation
-while(time < end.time)
-  
-{
+while(time < end_time) {
   dt = dt_start
-  while (abs(calculate_heuns_method(current.state) - calculate_forward_method(current.state)) > tolerance) {
+  while (abs(calculate_heuns_method(current_state) - calculate_euler_forward_method(current_state)) > tolerance) {
     dt = dt*factor 
   }
-    current.state = calculate_heuns_method(current.state)
-    result.state = c(result.state,current.state)
-    time = time + dt
-    result.time = c(result.time,time)
+  current_state = calculate_heuns_method(current_state)
+  result_state = c(result_state,current_state)
+  time = time + dt
+  result_time = c(result_time,time)
 }
 
-
-
 # Analytical solution
-time.sequence = seq(begin.time,end.time, by=0.1)
-analyt_real.state=init.state * exp(-time.sequence*alpha/A)
-analyt.state=init.state * exp(-result.time*alpha/A)
+time_sequence = seq(begin_time,end_time, by=0.1)
+analytic_state=initial_state * exp(-time_sequence*alpha/A)
+
+# state of analytical solution to compare with numercial solution at every time step
+analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
 
 # Plotting
-plot(result.time, result.state,type='o', xlab="time", ylab="state")
-lines(result.time, analyt.state, col='grey', lwd=2)
+plot(result_time, result_state,type='o', xlab="time", ylab="state", col="blue")
+lines(result_time, analytic_state_at_discrete_time_step, col='grey', lwd=2)
 title(main='Emptying reservoir')
 grid()
 
 # Number of function evaluations
-num_eval = length(result.time)
+num_eval = length(result_time)
 
 #global_truncation_error = 
 
-analytic_comparison = abs(analyt.state - result.state)
-
-area_under_results_curve = AUC(result.time,result.state)
-area_under_analytical_curve = AUC(time.sequence, analyt_real.state)
+# Error per time-step
+analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
 
 ```
+
+Calculate total error in the whole domain
+```{R}
+# Install package for area under curve
+if (!"DescTools" %in% installed.packages()) {install.packages("DescTools")}
+library(DescTools)
+
+# Calculate with area under curve
+area_under_numercial_curve = AUC(result_time, result_state)
+area_under_analytical_curve = AUC(time_sequence, analytic_state)
+print(paste("The difference between analytical and numerical solution is:", 
+            abs(area_under_numercial_curve - area_under_analytical_curve)))
+
+
+```
+
+
+
 
 # With fixed input
 ```{R}
