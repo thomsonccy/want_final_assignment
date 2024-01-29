@@ -121,6 +121,9 @@ num_eval = length(result_time)
 # Error per time-step
 analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
 
+# Root-mean-square deviation
+RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
+print(paste("The root mean square deviation is:", RMSD))
 ```
 
 Calculate total error in the whole domain
@@ -137,7 +140,11 @@ print(paste0("The absolute and percentage difference between analytical and nume
             abs(area_under_numercial_curve - area_under_analytical_curve) / area_under_analytical_curve * 100, "%"))
 print(paste("The number of evaluations is", num_eval))
 ```
+# Calculate sum of squares
+```{R}
+()
 
+```
 
 
 
