@@ -48,13 +48,12 @@ $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 \left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
 
 ```{R}
-# # system function
-# sys.fun = function(state)
-# {
-#     newstate = state + dt/A*(-alpha*state)
-#     return(newstate)
-# }
 
+
+```
+
+# With fixed input
+```{R}
 # System functions
 g_explicit = function(time, state)
 {
@@ -128,8 +127,6 @@ grid()
 
 # Number of function evaluations
 num_eval = length(result.time)
-```
 
-# First commit
-```{R}
+
 ```
