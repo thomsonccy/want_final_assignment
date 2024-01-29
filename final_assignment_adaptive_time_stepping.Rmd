@@ -132,10 +132,10 @@ library(DescTools)
 # Calculate with area under curve
 area_under_numercial_curve = AUC(result_time, result_state)
 area_under_analytical_curve = AUC(time_sequence, analytic_state)
-print(paste("The difference between analytical and numerical solution is:", 
-            abs(area_under_numercial_curve - area_under_analytical_curve)))
-
-
+print(paste0("The absolute and percentage difference between analytical and numerical solution is: ", 
+            abs(area_under_numercial_curve - area_under_analytical_curve), " and ", 
+            abs(area_under_numercial_curve - area_under_analytical_curve) / area_under_analytical_curve * 100, "%"))
+print(paste("The number of evaluations is", num_eval))
 ```
 
 
