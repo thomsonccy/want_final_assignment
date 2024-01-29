@@ -48,6 +48,14 @@ $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 \left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
 
 ```{R}
+# Install package
+  if (!"DescTools" %in% installed.packages()) {install.packages("DescTools")}
+  library(DescTools)
+
+
+```
+
+```{R}
 # system function
 
 calculate_heuns_method = function(state)
@@ -99,6 +107,7 @@ while(time < end.time)
 
 # Analytical solution
 time.sequence = seq(begin.time,end.time, by=0.1)
+analyt_real.state=init.state * exp(-time.sequence*alpha/A)
 analyt.state=init.state * exp(-result.time*alpha/A)
 
 # Plotting
@@ -114,7 +123,8 @@ num_eval = length(result.time)
 
 analytic_comparison = abs(analyt.state - result.state)
 
-area_under_results_curve = AUC(results.time,results.state)
+area_under_results_curve = AUC(result.time,result.state)
+area_under_analytical_curve = AUC(time.sequence, analyt_real.state)
 
 ```
 
