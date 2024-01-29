@@ -31,7 +31,7 @@ Where $\tilde{s}$ is a sub-step equal to Euler Forward. Subsequently, $t+\Delta 
 $$ s(t+\Delta t)= s(t) + \frac{\Delta t}{2}(f(t,s(t))+f(t+\Delta t,\widetilde{s}))$$
 
 
-Another option is for instance the Cash-Karp method, where two Runge-Kutta schemes are compared. Implement the schemes, define an error tolerance, and adapt the time step when the error exceeds this tolerance. Compare your results to the analytical solution, to evaluate the trade-off between error and number of evaluations. 
+Another option is for instance the Cash-Karp method, where two Runge-Kutta schemes are compared. Implement the schemes, define an error tolerance, and adapt the time step when the error exceeds this tolerance. Compare your results to the analytical solution, to evaluate the trade-off between error and number of evaluations-. 
 
 # Second assignment
 Conduct a sensitivity analysis. 
@@ -48,7 +48,73 @@ $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 \left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
 
 ```{R}
+# system function
 
+calculate_heuns_method = function(state)
+{
+    s_bar= state + dt/A *(-alpha * state)
+    newstate = state + dt/(2*A) *((-alpha*state)  - alpha * s_bar) 
+    return(newstate)
+}
+
+calculate_forward_method = function(state)
+{
+    forward = state + dt/A *(-alpha * state)
+    return(forward)
+}
+
+factor = 0.95
+tolerance = 0.01
+# Initial parameter values
+begin.time = 0     # usually this variable is set to 0
+end.time   = 50    # end time of the simulation 
+dt_start   = 5   # delta t; time discretisation 
+init.state = 3     # state of the system at the beginning of the simulation 
+
+# reservoir parameter values
+A         = 4.0   # area
+alpha     = 1.5  # decay constant
+
+# Simulation initialisation
+time = begin.time
+result.state = c(init.state)
+result.time = c(time)
+current.state = init.state
+
+# Simulation
+while(time < end.time)
+  
+{
+  dt = dt_start
+  while (abs(calculate_heuns_method(current.state) - calculate_forward_method(current.state)) > tolerance) {
+    dt = dt*factor 
+  }
+    current.state = calculate_heuns_method(current.state)
+    result.state = c(result.state,current.state)
+    time = time + dt
+    result.time = c(result.time,time)
+}
+
+
+
+# Analytical solution
+time.sequence = seq(begin.time,end.time, by=0.1)
+analyt.state=init.state * exp(-result.time*alpha/A)
+
+# Plotting
+plot(result.time, result.state,type='o', xlab="time", ylab="state")
+lines(result.time, analyt.state, col='grey', lwd=2)
+title(main='Emptying reservoir')
+grid()
+
+# Number of function evaluations
+num_eval = length(result.time)
+
+#global_truncation_error = 
+
+analytic_comparison = abs(analyt.state - result.state)
+
+area_under_results_curve = AUC(results.time,results.state)
 
 ```
 
