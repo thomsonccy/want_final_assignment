@@ -18,6 +18,8 @@ We will implement an adaptive time stepping scheme for the most simple model we 
 
 ![](reservoir_properties.png)
 
+
+
 *Single linear reservoir with outlet properties.*  
 
 # First assignment
@@ -27,6 +29,8 @@ $$\widetilde{s}= s(t) + \Delta t f(t,s(t))$$
 
 Where $\tilde{s}$ is a sub-step equal to Euler Forward. Subsequently, $t+\Delta t$ is obtained as:
 $$ s(t+\Delta t)= s(t) + \frac{\Delta t}{2}(f(t,s(t))+f(t+\Delta t,\widetilde{s}))$$
+
+
 Another option is for instance the Cash-Karp method, where two Runge-Kutta schemes are compared. Implement the schemes, define an error tolerance, and adapt the time step when the error exceeds this tolerance. Compare your results to the analytical solution, to evaluate the trade-off between error and number of evaluations. 
 
 # Second assignment
@@ -40,13 +44,36 @@ You are free to explore any other questions that arise with the model. For examp
 - What happens to the results if you add complexity to my model? (e.g. by introducing a second outlet)
 - What is the relation between time steps and parameter sensitivity?
 
+$$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
+\left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
+
 ```{R}
-# system function
+# # system function
+# sys.fun = function(state)
+# {
+#     newstate = state + dt/A*(-alpha*state)
+#     return(newstate)
+# }
+
+# System functions
+g_explicit = function(time, state)
+{
+  return(state + dt/A*((sin(time)+1)-alpha*state))
+}
+
+g_implicit = function(time, state)
+{
+  return(state+dt/2*(((sin(time)+1-alpha*state)/A)+(sin(time)+1-alpha*g_explicit(time,state))/A))
+  
+}
+
 sys.fun = function(state)
 {
-    newstate = state + dt/A*(-alpha*state)
-    return(newstate)
+  # s.aux    = g_explicit(time     , state)
+  newstate = g_implicit(time, state)
+  return(newstate)
 }
+
 
 # Initial parameter values
 begin.time = 0     # usually this variable is set to 0
@@ -74,13 +101,29 @@ while(time < end.time)
 }
 
 # Analytical solution
-time.sequence = seq(begin.time,end.time, by=0.1)
-analyt.state=init.state * exp(-time.sequence*alpha/A)
+# time.sequence = seq(begin.time,end.time, by=0.1)
+# analyt.state=init.state * exp(-time.sequence*alpha/A)
+
+
+
 
 # Plotting
 plot(result.time, result.state,type='o', xlab="time", ylab="state")
 lines(time.sequence, analyt.state, col='grey', lwd=2)
-title(main='Emptying reservoir')
+dt = 0.1 # a new dt value to evaluate current scheme
+time = begin.time
+result.state = c(init.state)
+result.time = c(time)
+current.state = init.state
+while(time < end.time)
+{
+  current.state = sys.fun(current.state)
+  result.state = c(result.state,current.state)
+  time = time + dt
+  result.time = c(result.time,time)
+}
+lines(result.time,result.state,type='o',col='blue', lwd=0.1)
+title(main='Emptying reservoir with input')
 grid()
 
 # Number of function evaluations
