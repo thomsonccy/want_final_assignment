@@ -306,3 +306,143 @@ num_eval = length(result.time)
 
 
 ```
+
+
+#variable time-stepping Hupsel
+```{r}
+##loading input and observed data
+hupsel = read.table(file='hupsel.dat')
+hupsel.time = hupsel$V1
+hupsel.Qin = hupsel$V2
+hupsel.Qobs = hupsel$V3
+#to make data continuous for al dt
+Qin.fun =approxfun(x=hupsel.time,y=hupsel.Qin,rule=2:2) 
+Qobs.fun = approxfun(x=hupsel.time,y=hupsel.Qobs,rule = 2:2)
+
+##time aspects
+begin.time   = 0              #begin time of the simulation
+end.time = hupsel.time[length(hupsel.time)] #end time of the simulation
+dt_init     = 2           #1.0#.5 #delta t; time discretisation
+
+#reservoir parameters
+res.alpha.lw = 0.10543215 
+res.alpha.up = 0.75
+res.lvl.up   = 0.4            #1.7
+res.A        = 1.45 
+
+init.state   = 0.5            #the initial state of the linear reservoir
+
+f = function(time, state){
+  if(state<= res.lvl.up){
+    state = (Qin.fun(time)/res.A) - (res.alpha.lw*state)/res.A
+  }
+  else{
+    state = (Qin.fun(time) - (res.alpha.lw*state) - res.alpha.up*(state-res.lvl.up))/res.A
+  }
+  return(state)
+  }
+
+#sys.fun = function(state)
+#{
+#  if(state<= res.lvl.up)
+# {
+#    state = state +dt/res.A*(Qin.fun(time)- res.alpha.lw*state)
+#  }else{
+#    state = state + dt/res.A*(Qin.fun(time)-res.alpha.up*(state-res.lvl.up)-res.alpha.lw*state)
+#  }
+#  return(state)
+#}
+
+time            = begin.time
+result.state    = c(init.state)
+result.time     = c(time)
+current.state   = init.state
+result.Qout1    = c()
+result.Qout2    = c()
+result.Qin      = c()
+
+tol = 10^-4
+factor = 0.8
+iterations = 0
+
+while(time < end.time)
+{ 
+  dt = dt_init
+  while(abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state))>tol){
+    iterations = iterations + 1
+    dt = factor * dt
+    #dt = factor * dt * (tol/abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state)))^1/5
+  }
+    iterations = iterations + 1
+    current.state = sys.fun_CK4(current.state)
+    result.state = c(result.state,current.state)
+    time = time + dt
+    result.time = c(result.time,time)
+}
+#####Calculation of the Qout fluxes
+##first a function (state.above.up) to determine which states are above the upper outlet
+state.above.up = function()
+{
+  state.up = c()
+  for (i in 1:length(result.time))
+  {
+    this.state = result.state[i]
+   if(this.state>res.lvl.up)
+   {
+     state.up=c(state.up,this.state)
+   }else{
+     state.up=c(state.up,0)
+   }
+  }
+  return(state.up)
+}
+
+
+  state.above =state.above.up()  
+  Qout.up = state.above
+  IQout = which(state.above>0)
+  Qout.up[IQout] = res.alpha.up*(Qout.up[IQout]-res.lvl.up) 
+ 
+  
+#   Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
+
+Qout.lw = c()
+Qout.lw = res.alpha.lw*result.state
+# Qout.lw = res.A*res.k.lw*result.state
+
+##balance
+##dV/dt = Qin - Qout.lw - Qout.up
+##dV/dt = state*res.A/dt
+nrsteps = length(result.state)-1
+dVdt = diff(result.state)*res.A/dt
+Qin = Qin.fun(result.time)
+error = Qin[1:nrsteps] - Qout.lw[1:nrsteps] - Qout.up[1:nrsteps] - dVdt
+ 
+plot(result.time,Qin,type = 'l',
+     ylim=c(min(Qin,Qout.lw,Qout.up,dVdt),max(Qin,Qout.lw,Qout.up,dVdt)),
+     ylab = 'L^3/T',xlab = 'time')
+legend('topleft',c('Qin : black',
+                 'Qout.lw : blue',
+                 'Qout.up : green',
+                 'dVdt: red',
+                 'error : dashed'))
+
+     
+lines(result.time[1:nrsteps],dVdt,col='red')
+lines(result.time[1:nrsteps],Qout.lw[1:nrsteps],col='blue')
+lines(result.time[1:nrsteps],Qout.up[1:nrsteps],col='green')
+lines(result.time[1:nrsteps],error,lty='dashed')
+
+##results observed vs computed
+plot(result.time[1:nrsteps],Qobs.fun(result.time[1:nrsteps]),type='l',
+     lwd=2,col='grey',ylim=c(min(hupsel.Qobs,Qout.lw,Qout.up),max(hupsel.Qobs,Qout.lw,Qout.up)),
+     ylab = 'Qout.obs/Qout.calc',xlab = 'time')
+lines(result.time[1:nrsteps],Qout.up[1:nrsteps]+Qout.lw[1:nrsteps],col='blue')
+
+RMSE = sqrt(mean((Qobs.fun(result.time)-(Qout.up+Qout.lw))^2))
+mean_obs = mean(Qobs.fun(result.time))
+obs_var = sum((Qobs.fun(result.time) - mean_obs)^2)
+NSE = 1-(sum((Qobs.fun(result.time)-(Qout.up+Qout.lw))^2)/obs_var)
+title(main=paste('Original time-stepping','RMSE = ',round(RMSE,digits=3), '\n NSE = ', round(NSE, digits = 2)))
+
+```
