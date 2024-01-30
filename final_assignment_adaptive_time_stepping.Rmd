@@ -351,6 +351,86 @@ for (i in c(2:length(points_for_evaluation))) {
 ```
 
 
+# Cash-Karp method
+```{r}
+
+f = function(time, state){
+  return((-alpha*state)/A)
+}
+#system function
+sys.fun_CK4 = function(state)
+{
+        k1 = dt*f(time,state)
+        k2 = dt*f(time+(1/5)*dt,state+((1/5)*k1)) 
+        k3 = dt*f(time+(3/10)*dt,state+((3/40)*k1)+((9/40)*k2))
+        k4 = dt*f(time+(3/5)*dt,state+((3/10)*k1)-((9/10)*k2)+((6/5)*k3))
+        k5 = dt*f(time+(1/1)*dt,state-((11/54)*k1)+((5/2)*k2)-((70/27)*k3)+((35/27)*k4))
+        k6 = dt*f(time+(7/8)*dt,state+((1631/55296)*k1)+((175/512)*k2)+((575/13824)*k3)+((44275/110592)*k4)+((253/4096)*k5))
+        newstate4 = state + ((37/378)*k1)+((250/621)*k3)+((125/594)*k4)+((512/1771)*k6)
+        return(newstate4)
+}
+
+sys.fun_CK5 = function(state)
+{
+        k1 = dt*f(time,state)
+        k2 = dt*f(time+(1/5)*dt,state+((1/5)*k1)) 
+        k3 = dt*f(time+(3/10)*dt,state+((3/40)*k1)+((9/40)*k2))
+        k4 = dt*f(time+(3/5)*dt,state+((3/10)*k1)-((9/10)*k2)+((6/5)*k3))
+        k5 = dt*f(time+(1/1)*dt,state-((11/54)*k1)+((5/2)*k2)-((70/27)*k3)+((35/27)*k4))
+        k6 = dt*f(time+(7/8)*dt,state+((1631/55296)*k1)+((175/512)*k2)+((575/13824)*k3)+((44275/110592)*k4)+((253/4096)*k5))
+        newstate5 = state + ((2825/27648)*k1)+((18575/48384)*k3)+((13525/55296)*k4)+((277/14336)*k5)+((1/4)*k6)
+        return(newstate5)
+}
+
+
+# Initial parameter values
+begin.time = 0     # usually this variable is set to 0
+end.time   = 50    # end time of the simulation 
+dt_init   = 5  # delta t; time discretisation 
+init.state = 3     # state of the system at the beginning of the simulation 
+
+# reservoir parameter values
+A         = 4.0   # area
+alpha     = 1.5  # decay constant
+
+# Simulation initialisation
+time = begin.time
+result.state = c(init.state)
+result.time = c(time)
+current.state = init.state
+
+# Simulation
+  tol = 10^-2
+  factor = 0.9
+  
+while(time < end.time)
+{ 
+  dt = dt_init
+  while(abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state))>tol){
+    dt = factor * dt
+    }
+    current.state = sys.fun_CK4(current.state)
+    result.state = c(result.state,current.state)
+    time = time + dt
+    result.time = c(result.time,time)
+}
+
+# Analytical solution
+time.sequence = seq(begin.time,end.time, by=0.1)
+analyt.state=init.state * exp(-time.sequence*alpha/A)
+analyt.state_compare = init.state * exp(-result.time*alpha/A)
+
+# Plotting
+plot(result.time, result.state,type='o', xlab="time", ylab="state")
+lines(time.sequence, analyt.state, col='grey', lwd=2)
+title(main='Emptying reservoir')
+grid()
+
+# Number of function evaluations
+num_eval = length(result.time)
+
+```
+
 
 ```{R, animation.hook="gifski", interval = 0.3}
 variance_A = c()
@@ -487,5 +567,145 @@ ggplot(temp_data,  aes(y=model_variance, x=time)) +
 # # Number of function evaluations
 # num_eval = length(result.time)
 # 
+
+```
+
+
+#variable time-stepping Hupsel
+```{r}
+##loading input and observed data
+hupsel = read.table(file='hupsel.dat')
+hupsel.time = hupsel$V1
+hupsel.Qin = hupsel$V2
+hupsel.Qobs = hupsel$V3
+#to make data continuous for al dt
+Qin.fun =approxfun(x=hupsel.time,y=hupsel.Qin,rule=2:2) 
+Qobs.fun = approxfun(x=hupsel.time,y=hupsel.Qobs,rule = 2:2)
+
+##time aspects
+begin.time   = 0              #begin time of the simulation
+end.time = hupsel.time[length(hupsel.time)] #end time of the simulation
+dt_init     = 2           #1.0#.5 #delta t; time discretisation
+
+#reservoir parameters
+res.alpha.lw = 0.10543215 
+res.alpha.up = 0.75
+res.lvl.up   = 0.4            #1.7
+res.A        = 1.45 
+
+init.state   = 0.5            #the initial state of the linear reservoir
+
+f = function(time, state){
+  if(state<= res.lvl.up){
+    state = (Qin.fun(time)/res.A) - (res.alpha.lw*state)/res.A
+  }
+  else{
+    state = (Qin.fun(time) - (res.alpha.lw*state) - res.alpha.up*(state-res.lvl.up))/res.A
+  }
+  return(state)
+  }
+
+#sys.fun = function(state)
+#{
+#  if(state<= res.lvl.up)
+# {
+#    state = state +dt/res.A*(Qin.fun(time)- res.alpha.lw*state)
+#  }else{
+#    state = state + dt/res.A*(Qin.fun(time)-res.alpha.up*(state-res.lvl.up)-res.alpha.lw*state)
+#  }
+#  return(state)
+#}
+
+time            = begin.time
+result.state    = c(init.state)
+result.time     = c(time)
+current.state   = init.state
+result.Qout1    = c()
+result.Qout2    = c()
+result.Qin      = c()
+
+tol = 10^-4
+factor = 0.8
+iterations = 0
+
+while(time < end.time)
+{ 
+  dt = dt_init
+  while(abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state))>tol){
+    iterations = iterations + 1
+    dt = factor * dt
+    #dt = factor * dt * (tol/abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state)))^1/5
+  }
+    iterations = iterations + 1
+    current.state = sys.fun_CK4(current.state)
+    result.state = c(result.state,current.state)
+    time = time + dt
+    result.time = c(result.time,time)
+}
+#####Calculation of the Qout fluxes
+##first a function (state.above.up) to determine which states are above the upper outlet
+state.above.up = function()
+{
+  state.up = c()
+  for (i in 1:length(result.time))
+  {
+    this.state = result.state[i]
+   if(this.state>res.lvl.up)
+   {
+     state.up=c(state.up,this.state)
+   }else{
+     state.up=c(state.up,0)
+   }
+  }
+  return(state.up)
+}
+
+
+  state.above =state.above.up()  
+  Qout.up = state.above
+  IQout = which(state.above>0)
+  Qout.up[IQout] = res.alpha.up*(Qout.up[IQout]-res.lvl.up) 
+ 
+  
+#   Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
+
+Qout.lw = c()
+Qout.lw = res.alpha.lw*result.state
+# Qout.lw = res.A*res.k.lw*result.state
+
+##balance
+##dV/dt = Qin - Qout.lw - Qout.up
+##dV/dt = state*res.A/dt
+nrsteps = length(result.state)-1
+dVdt = diff(result.state)*res.A/dt
+Qin = Qin.fun(result.time)
+error = Qin[1:nrsteps] - Qout.lw[1:nrsteps] - Qout.up[1:nrsteps] - dVdt
+ 
+plot(result.time,Qin,type = 'l',
+     ylim=c(min(Qin,Qout.lw,Qout.up,dVdt),max(Qin,Qout.lw,Qout.up,dVdt)),
+     ylab = 'L^3/T',xlab = 'time')
+legend('topleft',c('Qin : black',
+                 'Qout.lw : blue',
+                 'Qout.up : green',
+                 'dVdt: red',
+                 'error : dashed'))
+
+     
+lines(result.time[1:nrsteps],dVdt,col='red')
+lines(result.time[1:nrsteps],Qout.lw[1:nrsteps],col='blue')
+lines(result.time[1:nrsteps],Qout.up[1:nrsteps],col='green')
+lines(result.time[1:nrsteps],error,lty='dashed')
+
+##results observed vs computed
+plot(result.time[1:nrsteps],Qobs.fun(result.time[1:nrsteps]),type='l',
+     lwd=2,col='grey',ylim=c(min(hupsel.Qobs,Qout.lw,Qout.up),max(hupsel.Qobs,Qout.lw,Qout.up)),
+     ylab = 'Qout.obs/Qout.calc',xlab = 'time')
+lines(result.time[1:nrsteps],Qout.up[1:nrsteps]+Qout.lw[1:nrsteps],col='blue')
+
+RMSE = sqrt(mean((Qobs.fun(result.time)-(Qout.up+Qout.lw))^2))
+mean_obs = mean(Qobs.fun(result.time))
+obs_var = sum((Qobs.fun(result.time) - mean_obs)^2)
+NSE = 1-(sum((Qobs.fun(result.time)-(Qout.up+Qout.lw))^2)/obs_var)
+title(main=paste('Original time-stepping','RMSE = ',round(RMSE,digits=3), '\n NSE = ', round(NSE, digits = 2)))
 
 ```
