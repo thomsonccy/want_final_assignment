@@ -48,7 +48,6 @@ $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 \left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
 
 
-
 ```{R}
 # Calculate water level in reservoir using Euler Forward and Heun's Method
 # Compare the absolute difference between Euler Forward and Heun's Method
@@ -56,6 +55,10 @@ $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 # If difference is larger than tolerance, it recalculates using 
 # new time step = old time step * factor
 # until the difference is smaller than tolerance
+
+calculate_water_level_reservoir = function(state, area, alpha){
+  return((-alpha*state)/area)
+}
 
 # Function: calculate_euler_forward_method
 #
@@ -71,11 +74,10 @@ $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 # Returns:
 #   The next state of the system after applying the Euler Forward method (numeric).
 
-calculate_euler_forward_method = function(state, dt=dt, area=A, alpha=alpha) {
-    forward = state + dt/A *(-alpha * state)
+calculate_euler_forward_reservoir = function(state, dt, area, alpha) {
+    forward = state + dt * calculate_water_level_reservoir(state, area, alpha)
     return(forward)
 }
-
 
 
 # Function: calculate_heuns_method
@@ -92,12 +94,36 @@ calculate_euler_forward_method = function(state, dt=dt, area=A, alpha=alpha) {
 # Returns:
 #   The next state of the system after applying Heun's method (numeric).
 
-calculate_heuns_method = function(state, dt=dt, area=A, alpha=alpha) {
-    s_tilde= state + dt/A *(-alpha * state)
-    newstate = state + dt/(2*A) *((-alpha*state)  - alpha * s_tilde) 
-    return(newstate)
+calculate_heuns_reservoir = function(state, dt, area, alpha) {
+    s_tilde = state + dt * calculate_water_level_reservoir(state, area, alpha)
+    heuns = state + dt / 2 * (calculate_water_level_reservoir(state, area, alpha) + calculate_water_level_reservoir(s_tilde, area, alpha)) 
+    return(heuns)
 }
 
+#system function
+calculate_rk4_reservoir = function(state, dt, area, alpha)
+{
+        k1 = dt*calculate_water_level_reservoir(state, area, alpha)
+        k2 = dt*calculate_water_level_reservoir(state+ k1 / 5, area, alpha) 
+        k3 = dt*calculate_water_level_reservoir(state+ 3/40*k1+9/40*k2, area, alpha)
+        k4 = dt*calculate_water_level_reservoir(state+3/10*k1-9/10*k2+6/5*k3, area, alpha)
+        k5 = dt*calculate_water_level_reservoir(state-11/54*k1+5/2*k2-70/27*k3+35/27*k4, area, alpha)
+        k6 = dt*calculate_water_level_reservoir(state+1631/55296*k1+175/512*k2+575/13824*k3+44275/110592*k4+253/4096*k5, area, alpha)
+        newstate4 = state + 37/378*k1+250/621*k3+125/594*k4+512/1771*k6
+        return(newstate4)
+}
+
+calculate_rk5_reservoir = function(state, dt, area, alpha)
+{
+        k1 = dt*calculate_water_level_reservoir(state, area, alpha)
+        k2 = dt*calculate_water_level_reservoir(state+ k1 / 5, area, alpha) 
+        k3 = dt*calculate_water_level_reservoir(state+ 3/40*k1+9/40*k2, area, alpha)
+        k4 = dt*calculate_water_level_reservoir(state+3/10*k1-9/10*k2+6/5*k3, area, alpha)
+        k5 = dt*calculate_water_level_reservoir(state-11/54*k1+5/2*k2-70/27*k3+35/27*k4, area, alpha)
+        k6 = dt*calculate_water_level_reservoir(state+1631/55296*k1+175/512*k2+575/13824*k3+44275/110592*k4+253/4096*k5, area, alpha)
+        newstate5 = state + 2825/27648*k1+18575/48384*k3+13525/55296*k4+277/14336*k5+1/4*k6
+        return(newstate5)
+}
 
 
 # Function: compare_methods
@@ -116,14 +142,19 @@ calculate_heuns_method = function(state, dt=dt, area=A, alpha=alpha) {
 #   The absolute difference between the results of the Euler Forward method
 #   and Heun's method (numeric).
 
-compare_methods = function(state, dt=dt, area=A, alpha=alpha) {
-    euler_forward = calculate_euler_forward_method(state, dt, A, alpha)
-    heuns_method = calculate_heuns_method(state, dt, A, alpha)
-    difference = abs(heuns_method - euler_forward)
+# compare_methods = function(state, dt=dt, area=A, alpha=alpha) {
+#     euler_forward = calculate_euler_forward_method(state, dt, A, alpha)
+#     heuns_method = calculate_heuns_method(state, dt, A, alpha)
+#     difference = abs(heuns_method - euler_forward)
+#     return(difference)
+# }
+
+compare_methods_reservoir = function(state, dt, area, alpha, method1, method2) {
+    result_method1 = method1(state, dt, area, alpha)
+    result_method2 = method2(state, dt, area, alpha)
+    difference = abs(result_method1 - result_method2)
     return(difference)
 }
-
-
 
 
 # Function: simulate_reservoir
@@ -137,17 +168,19 @@ compare_methods = function(state, dt=dt, area=A, alpha=alpha) {
 #   end_time      - The ending time of the simulation (numeric).
 #   dt_start      - The initial time step for the simulation (numeric).
 #   initial_state - The initial state of the reservoir (numeric).
-#   A             - The area parameter of the reservoir (numeric).
+#   area          - The area parameter of the reservoir (numeric).
 #   alpha         - The decay constant (numeric).
 #   factor        - The factor by which to adjust the time step (numeric).
 #   tolerance     - The tolerance level for adjusting the time step (numeric).
+#   first_method  - 
+#   second_method - 
 #
 # Returns:
 #   A list containing two elements:
 #     - time: A vector of time steps at which the state was calculated (numeric).
 #     - state: A vector of states of the reservoir at each time step (numeric).
 
-simulate_reservoir = function(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance) {
+simulate_reservoir = function(begin_time, end_time, dt_start, initial_state, area, alpha, factor, tolerance, method1, method2) {
     # Initialize variables
     time = begin_time
     result_state = c(initial_state)
@@ -157,10 +190,10 @@ simulate_reservoir = function(begin_time, end_time, dt_start, initial_state, A, 
     # Simulation loop
     while(time < end_time) {
         dt = dt_start
-        while (compare_methods(current_state, dt, A, alpha) > tolerance) {
+        while (compare_methods_reservoir(current_state, dt, area, alpha, method1, method2) > tolerance) {
             dt = dt * factor
         }
-        current_state = calculate_heuns_method(current_state, dt, A, alpha)
+        current_state = method1(current_state, dt, area, alpha)
         result_state = c(result_state, current_state)
         time = time + dt
         result_time = c(result_time, time)
@@ -180,7 +213,7 @@ factor = 0.8
 tolerance = 0.01
 
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
 
 # Extract results for plotting and further analysis
 result_time = simulation_results$time
@@ -227,6 +260,7 @@ print(paste0("The absolute and percentage difference between analytical and nume
             abs(area_under_numercial_curve - area_under_analytical_curve) / area_under_analytical_curve * 100, "%"))
 print(paste("The number of evaluations is", num_eval))
 ```
+
 # Global sensitivity analysis
 ```{R}
 source("samplehelpers.R")
@@ -282,7 +316,7 @@ for(i in 1:nrow(parsample))
     alpha = parsample[i,"alpha"]
     
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 # Extract results for plotting and further analysis
 result_time = simulation_results$time
@@ -351,85 +385,7 @@ for (i in c(2:length(points_for_evaluation))) {
 ```
 
 
-# Cash-Karp method
-```{r}
 
-f = function(time, state){
-  return((-alpha*state)/A)
-}
-#system function
-sys.fun_CK4 = function(state)
-{
-        k1 = dt*f(time,state)
-        k2 = dt*f(time+(1/5)*dt,state+((1/5)*k1)) 
-        k3 = dt*f(time+(3/10)*dt,state+((3/40)*k1)+((9/40)*k2))
-        k4 = dt*f(time+(3/5)*dt,state+((3/10)*k1)-((9/10)*k2)+((6/5)*k3))
-        k5 = dt*f(time+(1/1)*dt,state-((11/54)*k1)+((5/2)*k2)-((70/27)*k3)+((35/27)*k4))
-        k6 = dt*f(time+(7/8)*dt,state+((1631/55296)*k1)+((175/512)*k2)+((575/13824)*k3)+((44275/110592)*k4)+((253/4096)*k5))
-        newstate4 = state + ((37/378)*k1)+((250/621)*k3)+((125/594)*k4)+((512/1771)*k6)
-        return(newstate4)
-}
-
-sys.fun_CK5 = function(state)
-{
-        k1 = dt*f(time,state)
-        k2 = dt*f(time+(1/5)*dt,state+((1/5)*k1)) 
-        k3 = dt*f(time+(3/10)*dt,state+((3/40)*k1)+((9/40)*k2))
-        k4 = dt*f(time+(3/5)*dt,state+((3/10)*k1)-((9/10)*k2)+((6/5)*k3))
-        k5 = dt*f(time+(1/1)*dt,state-((11/54)*k1)+((5/2)*k2)-((70/27)*k3)+((35/27)*k4))
-        k6 = dt*f(time+(7/8)*dt,state+((1631/55296)*k1)+((175/512)*k2)+((575/13824)*k3)+((44275/110592)*k4)+((253/4096)*k5))
-        newstate5 = state + ((2825/27648)*k1)+((18575/48384)*k3)+((13525/55296)*k4)+((277/14336)*k5)+((1/4)*k6)
-        return(newstate5)
-}
-
-
-# Initial parameter values
-begin.time = 0     # usually this variable is set to 0
-end.time   = 50    # end time of the simulation 
-dt_init   = 5  # delta t; time discretisation 
-init.state = 3     # state of the system at the beginning of the simulation 
-
-# reservoir parameter values
-A         = 4.0   # area
-alpha     = 1.5  # decay constant
-
-# Simulation initialisation
-time = begin.time
-result.state = c(init.state)
-result.time = c(time)
-current.state = init.state
-
-# Simulation
-  tol = 10^-2
-  factor = 0.9
-  
-while(time < end.time)
-{ 
-  dt = dt_init
-  while(abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state))>tol){
-    dt = factor * dt
-    }
-    current.state = sys.fun_CK4(current.state)
-    result.state = c(result.state,current.state)
-    time = time + dt
-    result.time = c(result.time,time)
-}
-
-# Analytical solution
-time.sequence = seq(begin.time,end.time, by=0.1)
-analyt.state=init.state * exp(-time.sequence*alpha/A)
-analyt.state_compare = init.state * exp(-result.time*alpha/A)
-
-# Plotting
-plot(result.time, result.state,type='o', xlab="time", ylab="state")
-lines(time.sequence, analyt.state, col='grey', lwd=2)
-title(main='Emptying reservoir')
-grid()
-
-# Number of function evaluations
-num_eval = length(result.time)
-
-```
 
 
 ```{R, animation.hook="gifski", interval = 0.3}
@@ -476,213 +432,210 @@ ggplot(temp_data,  aes(y=model_variance, x=time)) +
 ```
 
 
-```{R}
-
-
-
-```
-
-
-
-
-
-
-```{R}
-
-
-```
-# With fixed input
-```{R}
-# # System functions
-# g_explicit = function(time, state)
-# {
-#   return(state + dt/A*((sin(time)+1)-alpha*state))
-# }
-# 
-# g_implicit = function(time, state)
-# {
-#   return(state+dt/2*(((sin(time)+1-alpha*state)/A)+(sin(time)+1-alpha*g_explicit(time+dt,state))/A))
-#   
-# }
-# 
-# sys.fun = function(state)
-# {
-#   # s.aux    = g_explicit(time     , state)
-#   newstate = g_implicit(time, state)
-#   return(newstate)
-# }
-# 
-# 
-# # Initial parameter values
-# begin.time = 0     # usually this variable is set to 0
-# end.time   = 50    # end time of the simulation 
-# dt         = 2.5   # delta t; time discretisation 
-# init.state = 3     # state of the system at the beginning of the simulation 
-# 
-# # reservoir parameter values
-# A         = 4.0   # area
-# alpha     = 1.5  # decay constant
-# 
-# # Simulation initialisation
-# time = begin.time
-# result.state = c(init.state)
-# result.time = c(time)
-# current.state = init.state
-# 
-# # Simulation
-# while(time < end.time)
-# {
-#     current.state = sys.fun(current.state)
-#     result.state = c(result.state,current.state)
-#     time = time + dt
-#     result.time = c(result.time,time)
-# }
-# 
-# # Analytical solution
-# # time.sequence = seq(begin.time,end.time, by=0.1)
-# # analyt.state=init.state * exp(-time.sequence*alpha/A)
-# 
-# 
-# 
-# 
-# # Plotting
-# plot(result.time, result.state,type='o', xlab="time", ylab="state")
-# lines(time.sequence, analyt.state, col='grey', lwd=2)
-# dt = 0.1 # a new dt value to evaluate current scheme
-# time = begin.time
-# result.state = c(init.state)
-# result.time = c(time)
-# current.state = init.state
-# while(time < end.time)
-# {
-#   current.state = sys.fun(current.state)
-#   result.state = c(result.state,current.state)
-#   time = time + dt
-#   result.time = c(result.time,time)
-# }
-# lines(result.time,result.state,type='o',col='blue', lwd=0.1)
-# title(main='Emptying reservoir with input')
-# grid()
-# 
-# # Number of function evaluations
-# num_eval = length(result.time)
-# 
-
-```
-
-
 #variable time-stepping Hupsel
 ```{r}
 ##loading input and observed data
-hupsel = read.table(file='hupsel.dat')
-hupsel.time = hupsel$V1
-hupsel.Qin = hupsel$V2
-hupsel.Qobs = hupsel$V3
+hupsel_dat = read.table(file='hupsel.dat')
+hupsel_time = hupsel_dat$V1
+hupsel_Qin = hupsel_dat$V2
+hupsel_Qobs = hupsel_dat$V3
 #to make data continuous for al dt
-Qin.fun =approxfun(x=hupsel.time,y=hupsel.Qin,rule=2:2) 
-Qobs.fun = approxfun(x=hupsel.time,y=hupsel.Qobs,rule = 2:2)
+approximate_Qin =approxfun(x=hupsel_time,y=hupsel_Qin,rule=2:2) 
+approximate_Qobs = approxfun(x=hupsel_time,y=hupsel_Qobs,rule = 2:2)
 
-##time aspects
-begin.time   = 0              #begin time of the simulation
-end.time = hupsel.time[length(hupsel.time)] #end time of the simulation
-dt_init     = 2           #1.0#.5 #delta t; time discretisation
-
-#reservoir parameters
-res.alpha.lw = 0.10543215 
-res.alpha.up = 0.75
-res.lvl.up   = 0.4            #1.7
-res.A        = 1.45 
-
-init.state   = 0.5            #the initial state of the linear reservoir
-
-f = function(time, state){
-  if(state<= res.lvl.up){
-    state = (Qin.fun(time)/res.A) - (res.alpha.lw*state)/res.A
+calculate_water_level_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up){
+  if(state <= res_lvl_up){
+    state = (approximate_Qin(time)/area) - (res_alpha_lw*state)/area
   }
   else{
-    state = (Qin.fun(time) - (res.alpha.lw*state) - res.alpha.up*(state-res.lvl.up))/res.A
+    state = (approximate_Qin(time) - (res_alpha_lw*state) - res_alpha_up*(state-res_lvl_up))/area
   }
   return(state)
   }
 
-#sys.fun = function(state)
-#{
-#  if(state<= res.lvl.up)
-# {
-#    state = state +dt/res.A*(Qin.fun(time)- res.alpha.lw*state)
-#  }else{
-#    state = state + dt/res.A*(Qin.fun(time)-res.alpha.up*(state-res.lvl.up)-res.alpha.lw*state)
-#  }
-#  return(state)
-#}
+# Function: calculate_euler_forward_hupsel
+#
+# Purpose:
+#   Calculates the next state of the system using the Euler Forward method.
+#
+# Parameters:
+#   state - The current state of the system (numeric).
+#   dt    - The time step to be used for calculation (numeric).
+#   A     - The area parameter of the reservoir (numeric).
+#   alpha - The decay constant (numeric).
+#
+# Returns:
+#   The next state of the system after applying the Euler Forward method (numeric).
 
-time            = begin.time
-result.state    = c(init.state)
-result.time     = c(time)
-current.state   = init.state
-result.Qout1    = c()
-result.Qout2    = c()
-result.Qin      = c()
+calculate_euler_forward_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) {
+    forward = state + dt * calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+    return(forward)
+}
 
-tol = 10^-4
-factor = 0.8
-iterations = 0
 
-while(time < end.time)
-{ 
-  dt = dt_init
-  while(abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state))>tol){
-    iterations = iterations + 1
-    dt = factor * dt
-    #dt = factor * dt * (tol/abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state)))^1/5
-  }
-    iterations = iterations + 1
-    current.state = sys.fun_CK4(current.state)
-    result.state = c(result.state,current.state)
-    time = time + dt
-    result.time = c(result.time,time)
+# Function: calculate_heuns_method
+#
+# Purpose:
+#   Calculates the next state of the system using Heun's method.
+#
+# Parameters:
+#   state - The current state of the system (numeric).
+#   dt    - The time step to be used for calculation (numeric).
+#   A     - The area parameter of the reservoir (numeric).
+#   alpha - The decay constant (numeric).
+#
+# Returns:
+#   The next state of the system after applying Heun's method (numeric).
+
+calculate_heuns_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) {
+    s_tilde = state + dt * calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+    heuns = state + dt / 2 * (calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) + calculate_water_level_hupsel(time, s_tilde, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)) 
+    return(heuns)
+}
+
+#system function
+calculate_rk4_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+{
+        k1 = dt*calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k2 = dt*calculate_water_level_hupsel(time + dt / 5, state+ k1 / 5, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) 
+        k3 = dt*calculate_water_level_hupsel(time + 3/10*dt,state+ 3/40*k1+9/40*k2, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k4 = dt*calculate_water_level_hupsel(time + 3/5*dt, state+3/10*k1-9/10*k2+6/5*k3, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k5 = dt*calculate_water_level_hupsel(time + 1/1*dt, state-11/54*k1+5/2*k2-70/27*k3+35/27*k4, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k6 = dt*calculate_water_level_hupsel(time + 7/8*dt, state+1631/55296*k1+175/512*k2+575/13824*k3+44275/110592*k4+253/4096*k5, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        newstate4 = state + 37/378*k1+250/621*k3+125/594*k4+512/1771*k6
+        return(newstate4)
+}
+
+calculate_rk5_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+{
+        k1 = dt*calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k2 = dt*calculate_water_level_hupsel(time + dt / 5, state+ k1 / 5, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) 
+        k3 = dt*calculate_water_level_hupsel(time + 3/10*dt,state+ 3/40*k1+9/40*k2, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k4 = dt*calculate_water_level_hupsel(time + 3/5*dt, state+3/10*k1-9/10*k2+6/5*k3, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k5 = dt*calculate_water_level_hupsel(time + 1/1*dt, state-11/54*k1+5/2*k2-70/27*k3+35/27*k4, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        k6 = dt*calculate_water_level_hupsel(time + 7/8*dt, state+1631/55296*k1+175/512*k2+575/13824*k3+44275/110592*k4+253/4096*k5, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+        newstate5 = state + 2825/27648*k1+18575/48384*k3+13525/55296*k4+277/14336*k5+1/4*k6
+        return(newstate5)
+}
+
+
+# Function: compare_methods
+#
+# Purpose:
+#   Compares the results of the Euler Forward method and Heun's method to determine
+#   the difference between these two approaches for a given state and time step.
+#
+# Parameters:
+#   state - The current state of the system (numeric).
+#   dt    - The time step to be used for calculation (numeric).
+#   A     - The area parameter of the reservoir (numeric).
+#   alpha - The decay constant (numeric).
+#
+# Returns:
+#   The absolute difference between the results of the Euler Forward method
+#   and Heun's method (numeric).
+
+# compare_methods = function(state, dt=dt, area=A, alpha=alpha) {
+#     euler_forward = calculate_euler_forward_method(state, dt, A, alpha)
+#     heuns_method = calculate_heuns_method(state, dt, A, alpha)
+#     difference = abs(heuns_method - euler_forward)
+#     return(difference)
+# }
+
+compare_methods_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up, method1, method2) {
+    result_method1 = method1(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+    result_method2 = method2(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+    difference = abs(result_method1 - result_method2)
+    return(difference)
+}
+
+
+simulate_hupsel = function(begin_time, end_time, dt_start, initial_state, area, alpha_lower, alpha_upper, level_upper, factor, tolerance, method1, method2) {
+    # Initialize variables
+    time = begin_time
+    result_state = c(initial_state)
+    result_time = c(time)
+    current_state = initial_state
+    result_Qout1    = c()
+    result_Qout2    = c()
+    result_Qin      = c()
+
+    # Simulation loop
+    while(time < end_time) {
+        dt = dt_start
+        #dt = factor * dt * (tol/abs(sys.fun_CK4(current.state) - sys.fun_CK5(current.state)))^1/5
+        while (compare_methods_hupsel(time, current_state, dt, area, alpha_lower, alpha_upper, level_upper, method1, method2) > tolerance) {
+            iterations = iterations + 1
+            dt = dt * factor
+        }
+        iterations = iterations + 1
+        current_state = method1(time, current_state, dt, area, alpha_lower, alpha_upper, level_upper)
+        result_state = c(result_state, current_state)
+        time = time + dt
+        result_time = c(result_time, time)
+    }
+
+    return(list(time = result_time, state = result_state))
 }
 #####Calculation of the Qout fluxes
 ##first a function (state.above.up) to determine which states are above the upper outlet
-state.above.up = function()
+calculate_water_level_above_upper = function(res_lvl_up)
 {
-  state.up = c()
-  for (i in 1:length(result.time))
+  water_level_above_upper = c()
+  for (i in 1:length(simulation_hepsel_results$time))
   {
-    this.state = result.state[i]
-   if(this.state>res.lvl.up)
+    current_water_level = simulation_hepsel_results$state[i]
+   if(current_water_level>res_lvl_up)
    {
-     state.up=c(state.up,this.state)
+     water_level_above_upper=c(water_level_above_upper,current_water_level)
    }else{
-     state.up=c(state.up,0)
+     water_level_above_upper=c(water_level_above_upper,0)
    }
   }
-  return(state.up)
+  return(water_level_above_upper)
 }
 
+##time aspects
+begin_time   = 0              #begin time of the simulation
+end_time = tail(hupsel_time, 1) #end time of the simulation
+dt_start     = 2           #1.0#.5 #delta t; time discretisation
 
-  state.above =state.above.up()  
-  Qout.up = state.above
-  IQout = which(state.above>0)
-  Qout.up[IQout] = res.alpha.up*(Qout.up[IQout]-res.lvl.up) 
+#reservoir parameters
+res_alpha_lw = 0.10543215 
+res_alpha_up = 0.75
+res_lvl_up   = 0.4            #1.7
+res_A        = 1.45 
+
+init_state   = 0.5            #the initial state of the linear reservoir
+
+tolerance = 10^-4
+factor = 0.8
+iterations = 0
+
+simulation_hepsel_results = simulate_hupsel(begin_time, end_time, dt_start, init_state, res_A, res_alpha_lw, res_alpha_up, res_lvl_up, factor, tolerance, calculate_rk4_hupsel, calculate_rk5_hupsel)
+
+  water_level_above_upper =calculate_water_level_above_upper(res_lvl_up)  
+  Qout_upper = water_level_above_upper
+  IQout = which(water_level_above_upper>0)
+  Qout_upper[IQout] = res_alpha_up*(Qout_upper[IQout]-res_lvl_up) 
  
   
 #   Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
 
-Qout.lw = c()
-Qout.lw = res.alpha.lw*result.state
+Qout_lower = c()
+Qout_lower = res_alpha_lw*simulation_hepsel_results$state
 # Qout.lw = res.A*res.k.lw*result.state
 
 ##balance
 ##dV/dt = Qin - Qout.lw - Qout.up
 ##dV/dt = state*res.A/dt
-nrsteps = length(result.state)-1
-dVdt = diff(result.state)*res.A/dt
-Qin = Qin.fun(result.time)
-error = Qin[1:nrsteps] - Qout.lw[1:nrsteps] - Qout.up[1:nrsteps] - dVdt
+nrsteps = length(simulation_hepsel_results$state)-1
+dVdt = diff(simulation_hepsel_results$state)*res_A/dt_start # unsure, was dt before
+Qin = approximate_Qin(simulation_hepsel_results$time)
+error = Qin[1:nrsteps] - Qout_lower[1:nrsteps] - Qout_upper[1:nrsteps] - dVdt
  
-plot(result.time,Qin,type = 'l',
-     ylim=c(min(Qin,Qout.lw,Qout.up,dVdt),max(Qin,Qout.lw,Qout.up,dVdt)),
+plot(simulation_hepsel_results$time,Qin,type = 'l',
+     ylim=c(min(Qin,Qout_lower,Qout_upper,dVdt),max(Qin,Qout_lower,Qout_upper,dVdt)),
      ylab = 'L^3/T',xlab = 'time')
 legend('topleft',c('Qin : black',
                  'Qout.lw : blue',
@@ -691,21 +644,21 @@ legend('topleft',c('Qin : black',
                  'error : dashed'))
 
      
-lines(result.time[1:nrsteps],dVdt,col='red')
-lines(result.time[1:nrsteps],Qout.lw[1:nrsteps],col='blue')
-lines(result.time[1:nrsteps],Qout.up[1:nrsteps],col='green')
-lines(result.time[1:nrsteps],error,lty='dashed')
+lines(simulation_hepsel_results$time[1:nrsteps],dVdt,col='red')
+lines(simulation_hepsel_results$time[1:nrsteps],Qout_lower[1:nrsteps],col='blue')
+lines(simulation_hepsel_results$time[1:nrsteps],Qout_upper[1:nrsteps],col='green')
+lines(simulation_hepsel_results$time[1:nrsteps],error,lty='dashed')
 
 ##results observed vs computed
-plot(result.time[1:nrsteps],Qobs.fun(result.time[1:nrsteps]),type='l',
-     lwd=2,col='grey',ylim=c(min(hupsel.Qobs,Qout.lw,Qout.up),max(hupsel.Qobs,Qout.lw,Qout.up)),
+plot(simulation_hepsel_results$time[1:nrsteps],approximate_Qobs(simulation_hepsel_results$time[1:nrsteps]),type='l',
+     lwd=2,col='grey',ylim=c(min(hupsel_Qobs,Qout_lower,Qout_upper),max(hupsel_Qobs,Qout_lower,Qout_upper)),
      ylab = 'Qout.obs/Qout.calc',xlab = 'time')
-lines(result.time[1:nrsteps],Qout.up[1:nrsteps]+Qout.lw[1:nrsteps],col='blue')
+lines(simulation_hepsel_results$time[1:nrsteps],Qout_upper[1:nrsteps]+Qout_lower[1:nrsteps],col='blue')
 
-RMSE = sqrt(mean((Qobs.fun(result.time)-(Qout.up+Qout.lw))^2))
-mean_obs = mean(Qobs.fun(result.time))
-obs_var = sum((Qobs.fun(result.time) - mean_obs)^2)
-NSE = 1-(sum((Qobs.fun(result.time)-(Qout.up+Qout.lw))^2)/obs_var)
+RMSE = sqrt(mean((approximate_Qobs(simulation_hepsel_results$time)-(Qout_upper+Qout_lower))^2))
+mean_obs = mean(approximate_Qobs(simulation_hepsel_results$time))
+obs_var = sum((approximate_Qobs(simulation_hepsel_results$time) - mean_obs)^2)
+NSE = 1-(sum((approximate_Qobs(simulation_hepsel_results$time)-(Qout_upper+Qout_lower))^2)/obs_var)
 title(main=paste('Original time-stepping','RMSE = ',round(RMSE,digits=3), '\n NSE = ', round(NSE, digits = 2)))
 
 ```
