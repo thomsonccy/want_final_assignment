@@ -799,7 +799,7 @@ calculate_euler_forward_hupsel = function(time, state, dt, area, res_alpha_lw, r
 
 calculate_heuns_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) {
     s_tilde = state + dt * calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
-    heuns = state + dt / 2 * (calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) + calculate_water_level_hupsel(time, s_tilde, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)) 
+    heuns = state + dt / 2 * (calculate_water_level_hupsel(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up) + calculate_water_level_hupsel(time+dt, s_tilde, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)) 
     return(heuns)
 }
 
