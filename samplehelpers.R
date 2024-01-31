@@ -1,4 +1,7 @@
+if (!"lhs" %in% installed.packages()) {install.packages("lhs")}
 library(lhs)
+
+if (!"truncnorm" %in% installed.packages()) {install.packages("truncnorm")}
 library(truncnorm)
 
 
