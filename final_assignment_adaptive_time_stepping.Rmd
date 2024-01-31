@@ -205,7 +205,7 @@ simulate_reservoir = function(begin_time, end_time, dt_start, initial_state, are
 # Define the parameters
 begin_time = 0
 end_time = 50
-dt_start = 5
+dt_start   = 5
 initial_state = 3
 A = 4.0
 alpha = 1.5
@@ -213,7 +213,7 @@ factor = 0.8
 tolerance = 0.01
 
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 # Extract results for plotting and further analysis
 result_time = simulation_results$time
@@ -226,6 +226,9 @@ analytic_state=initial_state * exp(-time_sequence*alpha/A)
 
 # state of analytical solution to compare with numerical solution at every time step
 analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
+
+# state of analytical to be compatiable with Isa's solution
+analyt.state=initial_state * exp(-result_time*alpha/A)
 
 # Plotting
 plot(result_time, result_state,type='o', xlab="time", ylab="state", col="blue")
@@ -260,6 +263,311 @@ print(paste0("The absolute and percentage difference between analytical and nume
             abs(area_under_numercial_curve - area_under_analytical_curve) / area_under_analytical_curve * 100, "%"))
 print(paste("The number of evaluations is", num_eval))
 ```
+```{r}
+# Approxfunction 
+approx_time = c(1:50)
+
+factor = 0.8
+tolerance = 0.01
+# Initial parameter values
+begin_time = 0     # usually this variable is set to 0
+end_time   = 50    # end time of the simulation 
+dt_start   = 5   # delta t; time discretisation 
+initial_state = 3     # state of the system at the beginning of the simulation 
+
+# reservoir parameter values
+A         = 4.0   # area
+alpha     = 1.5  # decay constant
+
+# Run the simulation
+base_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+# Determine number of evaluration and runs needed 
+base_num_eval = length(base_simulation_results$time)
+print(paste("Number of evaluations for base=", base_num_eval))
+print(paste("Number of runs for base=",base_simulation_results$runs))
+
+# Appromixate the function 
+approx_fun_base = approxfun(base_simulation_results$time,base_simulation_results$state)
+approx_base_results = approx_fun_base(approx_time)
+
+## ------------------------------ LOCAL SENSITIVTY ANALYSIS ------------------------------- ##
+
+# Base 
+base= list(initial_state = initial_state,A=A,alpha=alpha,tolerance=tolerance,factor=factor, dt_start = dt_start)
+str(base)
+
+# define scale of variation # dt_start?
+scale= list(initial_state = 0.05 *initial_state,
+            A = 0.05 * A,
+            alpha = 0.05 * alpha,
+            tolerance = 0.05 * tolerance,
+            factor = 0.05*factor, 
+            dt_start = 0.005 * dt_start)
+
+#Define an epsion value 
+eps = 1e-3
+
+## ---------------------------- INITIAL VALUE ------------------------------------##
+
+# Sensitivity of init.state
+initial_state=base$initial_state+eps*base$initial_state
+
+# Run model 
+sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+## approximate function
+approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
+approx_sens_results = approx_fun_sens(approx_time)
+
+## Caputre number of runs and evaluations
+num_eval_initial_state = length(sens_simulation_results$time)
+print(paste("Number of evaluations for intial value=", num_eval_initial_state))
+runs_intial_value = sens_simulation_results$runs
+print(paste("Number of runs for initial value=",sens_simulation_results$runs))
+
+# Reset the base values 
+initial_state=base$initial_state
+
+#Find the local slope for the states
+dStates_dinitstate = (approx_sens_results - approx_base_results)/(eps*base$initial_state)
+#Plot 
+plot(approx_time,dStates_dinitstate,type="l",lwd=3,col="blue",main="d{state}/d{init.state}")
+abline(h=0,col="red",lwd=3)
+grid(col="black")
+# Plot
+plot(sens_simulation_results$time, sens_simulation_results$state,type='o', xlab="time", ylab="state")
+lines(base_simulation_results$time, analyt.state, col='grey', lwd=2)
+title(main='Emptying reservoir')
+grid()
+
+## ---------------------------- ALPHA ------------------------------------##
+
+# Sensitivity of init.state
+alpha=base$alpha+eps*base$alpha
+
+# Run model 
+sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start,initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+## approximate function
+approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
+approx_sens_results = approx_fun_sens(approx_time)
+
+# Number of runs 
+num_eval_alpha = length(sens_simulation_results$time)
+print(paste("Number of evaluations for alpha =", num_eval_alpha))
+runs_alpha = sens_simulation_results$runs
+print(paste("Number of runs for alpha =",runs_alpha))
+
+# Reset the base values 
+alpha=base$alpha
+
+#Find the local slope for the states
+dStates_dAlpha  = (approx_sens_results - approx_base_results)/(eps*base$alpha)
+
+#Plot 
+plot(approx_time,dStates_dAlpha,type="l",lwd=3,col="blue",main="d{state}/d{Alpha}")
+abline(h=0,col="red",lwd=3)
+grid(col="black")
+
+## ---------------------------- A ------------------------------------##
+
+# Sensitivity of init.state
+A=base$A+eps*base$A
+
+# Run model 
+sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start,initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+## approximate function
+approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
+approx_sens_results = approx_fun_sens(approx_time)
+
+# Number of runs 
+num_eval_A = length(sens_simulation_results$time)
+print(paste("Number of evaluations for A=", num_eval_A ))
+runs_A = sens_simulation_results$runs
+print(paste("Number of runs for A =",runs_A))
+
+# Reset the base values 
+A=base$A
+
+#Find the local slope for the states
+dStates_dA = (approx_sens_results - approx_base_results)/(eps*base$A)
+
+#Plot 
+plot(approx_time,dStates_dA,type="l",lwd=3,col="blue",main="d{state}/d{A}")
+abline(h=0,col="red",lwd=3)
+grid(col="black")
+
+
+## ---------------------------- TOLERANCE ------------------------------------##
+
+# Sensitivity of init.state
+tolerance =base$tolerance +eps*base$tolerance 
+
+# Run model 
+sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+## approximate function
+approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
+approx_sens_results = approx_fun_sens(approx_time)
+
+# Number of runs 
+num_eval_tolerance = length(sens_simulation_results$time)
+print(paste("Number of evaluations for A=", num_eval_tolerance))
+runs_tolerance = sens_simulation_results$runs
+print(paste("Number of runs for tolerance =",runs_tolerance))
+
+# Reset the base values 
+tolerance =base$tolerance 
+
+#Find the local slope for the states
+dStates_dTolerance = (approx_sens_results - approx_base_results)/(eps*base$tolerance )
+
+#Plot 
+plot(approx_time,dStates_dTolerance,type="l",lwd=3,col="blue",main="d{state}/d{tolerance}")
+abline(h=0,col="red",lwd=3)
+grid(col="black")
+
+## ---------------------------- factor ------------------------------------##
+
+# Sensitivity of init.state
+factor =base$factor + eps*base$factor 
+
+# Run model 
+sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, tolerance, factor, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+## approximate function
+approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
+approx_sens_results = approx_fun_sens(approx_time)
+
+# Number of factor 
+num_eval_factor = length(sens_simulation_results$time)
+print(paste("Number of evaluations for factor=", num_eval_factor ))
+runs_factor = sens_simulation_results$runs
+print(paste("Number of runs for factor =",runs_factor))
+
+# Reset the base values 
+factor =base$factor 
+
+#Find the local slope for the states
+dStates_dfactor = (approx_sens_results - approx_base_results)/(eps*base$factor)
+
+#Plot 
+plot(approx_time,dStates_dfactor,type="l",lwd=3,col="blue",main="d{state}/d{factor}")
+abline(h=0,col="red",lwd=3)
+grid(col="black")
+
+## ---------------------------- dt START------------------------------------##
+
+# Sensitivity of init.state
+factor =base$dt_start +eps*base$dt_start 
+
+# Run model 
+sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, tolerance, factor, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+
+## approximate function
+approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
+approx_sens_results = approx_fun_sens(approx_time)
+
+# Number of runs 
+num_eval_dt = length(sens_simulation_results$time)
+print(paste("Number of evaluations for dt=", num_eval_dt ))
+runs_dt = sens_simulation_results$runs
+print(paste("Number of runs for dt =",runs_dt))
+
+# Reset the base values 
+dt_start  =base$dt_start  
+
+#Find the local slope for the states
+dStates_dDt_start  = (approx_sens_results - approx_base_results)/(eps*base$dt_start)
+
+#Plot 
+plot(approx_time,dStates_dDt_start,type="l",lwd=3,col="blue",main="d{state}/d{dt_start}")
+abline(h=0,col="red",lwd=3)
+grid(col="black")
+
+```
+
+```{r}
+ ## --------------------------- SENSITIVITY ANALYSIS ------------------------------
+
+varState.initial_state = (scale$initial_state*dStates_dinitstate)^2
+varState.alpha = (scale$alpha*dStates_dAlpha)^2
+varState.A  = (scale$A*dStates_dA)^2
+varState.tolerance= (scale$tolerance*dStates_dTolerance)^2
+varState.factor = (scale$factor*dStates_dfactor)^2
+varState.dt_start = (scale$dt_start*dStates_dDt_start)^2
+
+#Separate Physical and Model parameters
+varStateTotPhysical = varState.initial_state + varState.alpha + varState.A
+varStateTotModel = varState.tolerance+ varState.factor + varState.dt_start
+
+#Plot the scale of variation of the states over the whole domain:
+plot(approx_time,sqrt(varStateTotPhysical),type="l",col="blue",lwd=3,
+     ylab="standard deviation [m]",xlab="x",main="Total scale of variation of water levels")
+grid(col="black")
+
+plot(approx_time,sqrt(varStateTotModel),type="l",col="blue",lwd=3,
+     ylab="standard deviation [m]",xlab="x",main="Total scale of variation of water levels")
+grid(col="black")
+```
+
+```{r}
+
+### LOCACL SENSITIVTY ANALYSIS: PLOT FIGURES FOR RELATIVE CONTIRBUTION TO VARIANCE 
+
+##   -------------------------- Physical parameters  -----------------------------------  ##
+
+## Plot with lines
+plot(approx_time,rep(1,length(approx_time)),ylim=c(0,1),type="l",
+     ylab="relative contribution to variance",xlab="time",
+     main="Contribution to scale of variation of groundwater levels")
+cols = rainbow(3)
+lines(approx_time,varState.initial_state/varStateTotPhysical,col=cols[1],lwd=2)
+lines(approx_time,varState.alpha/varStateTotPhysical,col=cols[2],lwd=2)
+lines(approx_time,varState.A/varStateTotPhysical,col=cols[3],lwd=2)
+legend("center", bty="n",
+   legend=c("Initial state","Alpha","A"),lty=1,col=cols,
+   horiz=TRUE)
+
+## Plot stacked bar charts 
+library(ggplot2)
+# create a data set
+condition <- (c(rep("Initial state", length(approx_time)), rep("Alpha", length(approx_time)), rep("A", length(approx_time))))
+value <- c(abs(varState.initial_state/varStateTotPhysical), abs(varState.alpha/varStateTotPhysical), abs(varState.A/varStateTotPhysical))
+data <- data.frame(approx_time,condition,value)
+# Stacked bar chart 
+ggplot(data, aes(fill=condition, y=value, x=approx_time)) + 
+    geom_bar(position="stack", stat="identity", width=0.8) + ggtitle("Relative contribution to variance for physical parameters") + xlab("Time") + ylab("Relative contribution to variance")
+
+##  ------------------------------- Model parameters  -----------------------------------  ##
+
+## Plot with lines
+plot(approx_time,rep(1,length(approx_time)),ylim=c(0,1),type="l",
+     ylab="relative contribution to variance",xlab="time",
+     main="Contribution to scale of variation of groundwater levels")
+cols = rainbow(3)
+lines(approx_time,varState.tolerance/varStateTotModel,col=cols[1],lwd=2)
+lines(approx_time,varState.factor/varStateTotModel,col=cols[2],lwd=2)
+lines(approx_time,varState.dt_start/varStateTotModel,col=cols[3],lwd=2)
+legend("center", bty="n",
+   legend=c("Tolerance","Factor","Reference dt"),lty=1,col=cols,
+   horiz=TRUE)
+
+## Plot with barchart
+library(ggplot2)
+# create a dataset
+condition <- (c(rep("tolerance", length(approx_time)), rep("factor", length(approx_time)), rep("dt start", length(approx_time))))
+value <- c(abs(varState.tolerance/varStateTotModel), abs(varState.factor/varStateTotModel), abs(varState.dt_start/varStateTotModel))
+data <- data.frame(approx_time,condition,value)
+# Stacked
+ggplot(data, aes(fill=condition, y=value, x=approx_time)) + 
+    geom_bar(position="stack", stat="identity", width=0.8) + ggtitle("Relative contribution to variance for model parameters") + xlab("Time") + ylab("Relative contribution to variance")
+
+```
+
+
 
 # Global sensitivity analysis
 ```{R}
@@ -430,6 +738,8 @@ temp_data = data.frame(time = c(1:(length(points_for_evaluation)-1)), model_vari
 ggplot(temp_data,  aes(y=model_variance, x=time)) +
   geom_line()
 ```
+
+
 
 
 #variable time-stepping Hupsel
