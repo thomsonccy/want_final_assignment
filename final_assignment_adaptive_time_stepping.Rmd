@@ -134,10 +134,10 @@ initial_state = 3
 A = 4.0
 alpha = 1.5
 factor = 0.8
-tolerance = 1e-6
+tolerance = 0.01
 
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
 # Extract results for plotting and further analysis
 result_time = simulation_results$time
@@ -197,7 +197,7 @@ source("samplehelpers.R")
 base_physical_global = list(initial_state=initial_state, A = A, alpha = alpha)
 scale_physical_global = list(initial_state= 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha)
 base_numerical_global = list(tolerance = tolerance, factor = factor, dt_start = dt_start)
-scale_numerical_global = list(tolerance = 0.05 * tolerance, factor = 0.05 * factor, dt_start = 0.05 * dt_start)
+scale_numerical_global = list(tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
 
 physical_names_global = names(base_physical_global)
 physical_means_global = unlist(base_physical_global)
@@ -210,8 +210,8 @@ numerical_sds_global    = unlist(scale_numerical_global)
 physical_lower_global = c(2, 3.5, 1)
 physical_upper_global = c(4, 4.5, 2)
 
-numerical_lower_global = c(0.001, 0.05, 0.01)
-numerical_upper_global = c(0.2, 0.95, 50)
+numerical_lower_global = c(0.0005, 0.5, 0.01)
+numerical_upper_global = c(0.05, 0.99, 20)
 
 samplesize = 1000
 set.seed(237)
@@ -276,7 +276,7 @@ for(i in 1:nrow(physical_sample_global))
     alpha = physical_sample_global[i,"alpha"]
     
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
 # Extract results for plotting and further analysis
 result_time = simulation_results$time
@@ -447,7 +447,7 @@ for(i in 1:nrow(numerical_sample_global))
     dt_start = numerical_sample_global[i,"dt_start"]
     
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
 # Extract results for plotting and further analysis
 result_time = simulation_results$time
@@ -580,14 +580,15 @@ points_for_evaluation = c(0:50)
 simulation_results_approx = matrix(0,ncol=length(points_for_evaluation),nrow=0)
 
 base_both_global = list(initial_state=initial_state, A = A, alpha = alpha, tolerance = tolerance, factor = factor, dt_start = dt_start)
-scale_both_global = list(initial_state= 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha, tolerance = 0.05 * tolerance, factor = 0.05 * factor, dt_start = 0.05 * dt_start)
+scale_both_global = list(initial_state= 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha, tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
+scale_numerical_global = list(tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
 
 both_names_global = names(base_both_global)
 both_means_global = unlist(base_both_global)
 both_sds_global    = unlist(scale_both_global)
 
-both_lower_global = c(2, 3.5, 1, 0.001, 0.05, 0.01)
-both_upper_global = c(4, 4.5, 2, 0.2, 0.95, 50)
+both_lower_global = c(2, 3.5, 1, 0.0005, 0.5, 0.01)
+both_upper_global = c(4, 4.5, 2, 0.05, 0.99, 20)
 
 
 samplesize = 1000
@@ -607,10 +608,10 @@ for(i in 1:nrow(both_sample_global))
     dt_start = both_sample_global[i,"dt_start"]
     
 # Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
 # Extract results for plotting and further analysis
-result_time = simulation_results$time
+result_time = simulation_results$time 
 result_state = simulation_results$state
 
 linear_interpolation = approxfun(result_time, result_state)
