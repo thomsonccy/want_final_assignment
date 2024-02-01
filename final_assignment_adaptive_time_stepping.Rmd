@@ -1,7 +1,7 @@
 ---
 title: "Final assignment: Adaptive Time Stepping"
-author: "The WANT team"
-date: "19/01/2020"
+author: "Thomson Chow, Isabella Anglin, Jiri Svatos, Xuwen Wang"
+date: "01/02/2024"
 output:
   html_document:
     css: want.css
@@ -1044,7 +1044,7 @@ hupsel_time <- hupsel_dat$V1
 hupsel_Qin <- hupsel_dat$V2
 hupsel_Qobs <- hupsel_dat$V3
 
-# to make data continuous for al dt
+# to make data continuous for all dt
 approximate_Qin <- approxfun(x = hupsel_time, y = hupsel_Qin, rule = 2:2)
 approximate_Qobs <- approxfun(x = hupsel_time, y = hupsel_Qobs, rule = 2:2)
 
@@ -1054,12 +1054,12 @@ source("hupsel_functions.R")
 ## time aspects
 begin_time <- 0 # begin time of the simulation
 end_time <- tail(hupsel_time, 1) # end time of the simulation
-dt_start <- 1 # 1.0#.5 #delta t; time discretisation
+dt_start <- 1 #delta t; time discretisation
 
 # reservoir parameters
-res_alpha_lw <- 0.18
+res_alpha_lw <- 0.18 #
 res_alpha_up <- 0.4
-res_lvl_up <- 0.9 # 1.7
+res_lvl_up <- 0.9
 res_A <- 1.6
 
 init_state <- 0.5 # the initial state of the linear reservoir
