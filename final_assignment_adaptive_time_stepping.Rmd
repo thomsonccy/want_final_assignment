@@ -458,9 +458,9 @@ rug(numerical_sample_global[, "dt_start"], col = "red")
 lines(density(numerical_sample_global[, "dt_start"]), col = "red", lwd = 2)
 ```
 
-KS test
+Kolmogorov–Smirnov test 
 ```{R, eval = FALSE}
-# Define the parameters
+# # Define the parameters
 # begin_time <- 0
 # end_time <- 50
 # initial_state <- base_physical_global$initial_state
@@ -482,8 +482,8 @@ KS test
 #   both_sample_global_new <- GaussianLHS(samplesize_new, both_means_global, both_sds_global, both_names_global, both_lower_global, both_upper_global)
 # 
 #   simulation_results_approx_old <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
-#   
-#   # start the for-loop through the parameter sample
+# 
+#   # For-loop through the old parameter sample
 #   for (i in 1:nrow(both_sample_global_old))
 #   {
 #     initial_state <- both_sample_global_old[i, "initial_state"]
@@ -495,7 +495,7 @@ KS test
 # 
 #     # Run the simulation
 #     simulation_results_old <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
-#     
+# 
 #      # Extract results for plotting and further analysis
 #   result_time_old <- simulation_results_old$time
 #   result_state_old <- simulation_results_old$state
@@ -505,11 +505,9 @@ KS test
 #   simulation_results_approx_old <- rbind(simulation_results_approx_old, linear_interpolation_old(points_for_evaluation))
 # 
 #   }
-#   
 #   simulation_results_approx_new <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
-#   
-#   # new
-#   # start the for-loop through the parameter sample
+# 
+#   # For-loop through the new parameter sample
 #   for (i in 1:nrow(both_sample_global_new))
 #   {
 #     initial_state <- both_sample_global_new[i, "initial_state"]
@@ -521,7 +519,7 @@ KS test
 # 
 #     # Run the simulation
 #     simulation_results_new <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
-#     
+# 
 #     # Extract results for plotting and further analysis
 #   result_time_new <- simulation_results_new$time
 #   result_state_new <- simulation_results_new$state
@@ -530,14 +528,33 @@ KS test
 #   linear_interpolation_new <- approxfun(result_time_new, result_state_new)
 #   simulation_results_approx_new <- rbind(simulation_results_approx_new, linear_interpolation_new(points_for_evaluation))
 #   }
-#   test_result <- independence_test(data.frame(simulation_results_approx_old), data.frame(simulation_results_approx_new))
-#   # Print debugging information
-#   print(paste("Sample sizes - Old:", samplesize_old, "New:", samplesize_new, "P-value:", test_result$p.value))
+#   
+#   
+#   significant <- FALSE
+# p_val <- numeric(length(points_for_evaluation))
 # 
-#   if (test_result$p.value < 0.05) {
-#     print("Breaking loop due to p-value less than 0.05")
+# # For each time step conduct the Kolmogorov–Smirnov test  
+# for (i in seq_along(points_for_evaluation)) {
+#     test_result <- ks.test(simulation_results_approx_old[,i], simulation_results_approx_new[,i])
+#     
+#     # Store the p-value of each time step
+#     p_val[i] <- test_result$p.value
+# }
+# 
+# # Use mean p-value for overall significance test
+# mean_p_val <- mean(p_val)
+#     if (mean_p_val > 0.99) {
+#         significant <- TRUE
+# }
+# 
+# # Print information while running
+# print(paste("Sample sizes - Old:", samplesize_old, "New:", samplesize_new, "Mean P-value:", mean_p_val))
+# 
+# # Break the loop if any of the tests are significant
+# if (significant) {
+#     print("Breaking loop due to significant KS test")
 #     break
-#   }
+# }
 # }
 # print(samplesize_old)
 ```
