@@ -1117,10 +1117,11 @@ plot(simulation_hepsel_results$time[1:nrsteps], approximate_Qobs(simulation_heps
 )
 lines(simulation_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps] + Qout_lower[1:nrsteps], col = "blue")
 
+#calculate performance metrics
 RMSE = sqrt(mean((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
 mean_obs = mean(approximate_Qobs(simulation_hepsel_results$time))
 obs_var = sum((approximate_Qobs(simulation_hepsel_results$time) - mean_obs)^2)
-NSE = 1 - (sum((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
+NSE = 1 - (sum((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var) #Nash-Sutcliffe efficiency
 title(main = paste("Original time-stepping", "RMSE = ", round(RMSE, digits = 2), "\n NSE = ", round(NSE, digits = 2)))
 ```
 
@@ -1199,10 +1200,11 @@ plot(simulation_fixed_hepsel_results$time[1:nrsteps], approximate_Qobs(simulatio
 )
 lines(simulation_fixed_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps] + Qout_lower[1:nrsteps], col = "blue")
 
+#calculate performance metrics
 RMSE = sqrt(mean((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
 mean_obs = mean(approximate_Qobs(simulation_fixed_hepsel_results$time))
 obs_var = sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - mean_obs)^2)
-NSE = 1 - (sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
+NSE = 1 - (sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var) #Nash-Sutcliffe efficiency
 title(main = paste("Fixed time-stepping", "\n RMSE = ", round(RMSE, digits = 3), " NSE = ", round(NSE, digits = 2)))
 ```
 
