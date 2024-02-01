@@ -1057,36 +1057,37 @@ end_time <- tail(hupsel_time, 1) # end time of the simulation
 dt_start <- 1 #delta t; time discretisation
 
 # reservoir parameters
-res_alpha_lw <- 0.18 #
-res_alpha_up <- 0.4
-res_lvl_up <- 0.9
-res_A <- 1.6
+res_alpha_lw <- 0.18 # decay constant of the lower reservoir
+res_alpha_up <- 0.4 # decay constant of the upper reservoir
+res_lvl_up <- 0.9 # height of the outlet of the upper reservoir
+res_A <- 1.6    #reservoir volume
 
 init_state <- 0.5 # the initial state of the linear reservoir
 
+#time-stepping parameters
 tolerance <- 10^-5
 factor <- 0.9
 iterations <- 0
 
+#run the model
 simulation_hepsel_results <- simulate_hupsel(begin_time, end_time, dt_start, init_state, res_A, res_alpha_lw, res_alpha_up, res_lvl_up, factor, tolerance, calculate_rk4_hupsel, calculate_rk5_hupsel)
 
+#calculate water partitioning
 water_level_above_upper <- calculate_water_level_above_upper(res_lvl_up, simulation_hepsel_results)
 Qout_upper <- water_level_above_upper
 IQout <- which(water_level_above_upper > 0)
 Qout_upper[IQout] <- res_alpha_up * (Qout_upper[IQout] - res_lvl_up)
-
-
 # Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
 
 Qout_lower <- c()
 Qout_lower <- res_alpha_lw * simulation_hepsel_results$state
 # Qout.lw = res.A*res.k.lw*result.state
 
-## balance
+## water balance
 ## dV/dt = Qin - Qout.lw - Qout.up
-## dV/dt = state*res.A/dt
+## dV/dt = state*res.A/dt_start
 nrsteps <- length(simulation_hepsel_results$state) - 1
-dVdt <- diff(simulation_hepsel_results$state) * res_A / dt_start # unsure, was dt before
+dVdt <- diff(simulation_hepsel_results$state) * res_A / dt_start
 Qin <- approximate_Qin(simulation_hepsel_results$time)
 error <- Qin[1:nrsteps] - Qout_lower[1:nrsteps] - Qout_upper[1:nrsteps] - dVdt
 
@@ -1116,10 +1117,10 @@ plot(simulation_hepsel_results$time[1:nrsteps], approximate_Qobs(simulation_heps
 )
 lines(simulation_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps] + Qout_lower[1:nrsteps], col = "blue")
 
-RMSE <- sqrt(mean((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
-mean_obs <- mean(approximate_Qobs(simulation_hepsel_results$time))
-obs_var <- sum((approximate_Qobs(simulation_hepsel_results$time) - mean_obs)^2)
-NSE <- 1 - (sum((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
+RMSE = sqrt(mean((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
+mean_obs = mean(approximate_Qobs(simulation_hepsel_results$time))
+obs_var = sum((approximate_Qobs(simulation_hepsel_results$time) - mean_obs)^2)
+NSE = 1 - (sum((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
 title(main = paste("Original time-stepping", "RMSE = ", round(RMSE, digits = 2), "\n NSE = ", round(NSE, digits = 2)))
 ```
 
@@ -1143,20 +1144,21 @@ end_time <- tail(hupsel_time, 1) # end time of the simulation
 dt <- 4 # 1.0#.5 #delta t; time discretisation
 
 # reservoir parameters
-res_alpha_lw <- 0.18
-res_alpha_up <- 0.4
-res_lvl_up <- 0.9 # 1.7
-res_A <- 1.6
+res_alpha_lw <- 0.18 # decay constant of the lower reservoir
+res_alpha_up <- 0.4 # decay constant of the upper reservoir
+res_lvl_up <- 0.9 # height of the outlet of the upper reservoir
+res_A <- 1.6    #reservoir volume
 
 init_state <- 0.5 # the initial state of the linear reservoir
 
+#run the model
 simulation_fixed_hepsel_results <- simulate_fixed_hupsel(begin_time, end_time, dt, init_state, res_A, res_alpha_lw, res_alpha_up, res_lvl_up)
 
+#calculate water partitioning
 water_level_above_upper <- calculate_water_level_above_upper(res_lvl_up, simulation_fixed_hepsel_results)
 Qout_upper <- water_level_above_upper
 IQout <- which(water_level_above_upper > 0)
 Qout_upper[IQout] <- res_alpha_up * (Qout_upper[IQout] - res_lvl_up)
-
 # Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
 
 Qout_lower <- c()
@@ -1197,10 +1199,10 @@ plot(simulation_fixed_hepsel_results$time[1:nrsteps], approximate_Qobs(simulatio
 )
 lines(simulation_fixed_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps] + Qout_lower[1:nrsteps], col = "blue")
 
-RMSE <- sqrt(mean((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
-mean_obs <- mean(approximate_Qobs(simulation_fixed_hepsel_results$time))
-obs_var <- sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - mean_obs)^2)
-NSE <- 1 - (sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
+RMSE = sqrt(mean((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
+mean_obs = mean(approximate_Qobs(simulation_fixed_hepsel_results$time))
+obs_var = sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - mean_obs)^2)
+NSE = 1 - (sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
 title(main = paste("Fixed time-stepping", "\n RMSE = ", round(RMSE, digits = 3), " NSE = ", round(NSE, digits = 2)))
 ```
 
