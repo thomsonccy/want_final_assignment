@@ -9,6 +9,7 @@ output:
     toc_depth: 1
 ---
 
+Also available at https://github.com/thomsonccy/want_final_assignment_group_12
 
 # Introduction
 During the exercises on Finite Differences, you have experienced several times that the model can become instable or at least can start oscillating. Often, this could be resolved with decreasing the time step over which the calculation was performed. This is, however, a rather expensive solution, because a smaller time step means many more calculations while maybe, this smaller time step is not needed throughout the complete simulation period. Therefore, adaptive time stepping schemes exist; when needed, a smaller time step is taken, and when not needed, the time step is increased again.  
@@ -653,8 +654,9 @@ grid(col="black")
 ```
 
 
-# --------------------------------- PART 4.3.3 AREA (A) ------------------------------------- #
-# Paramter type: Physical 
+### 4.3.3 Area (A)
+
+Paramter type: Physical 
 
 ```{R}
 # Sensitivity of Area (A)
@@ -684,7 +686,6 @@ plot(approx_time,dStates_dA,type="l",lwd=3,col="blue",main="d{state}/d{A}")
 abline(h=0,col="red",lwd=3)
 grid(col="black")
 ```
-
 
 ### 4.3.4 Tolerance 
 
