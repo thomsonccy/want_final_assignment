@@ -1,7 +1,7 @@
 # Function: calculate_water_level_reservoir
 # Description:
 #   Calculates the water level of a reservoir at next time step.
-# 
+#
 # Parameters:
 #   state: Numeric. The current water level in the reservoir.
 #   area: Numeric. The area of the reservoir.
@@ -18,7 +18,7 @@ calculate_water_level_reservoir <- function(state, area, alpha) {
 # Function: calculate_euler_forward_reservoir
 # Description:
 #   Calculates the next state of the reservoir using Euler's Forward Method.
-# 
+#
 # Parameters:
 #   state: Numeric. The current state of the reservoir.
 #   dt: Numeric. Time step size.
@@ -37,13 +37,13 @@ calculate_euler_forward_reservoir <- function(state, dt, area, alpha) {
 # Function: calculate_heuns_reservoir
 # Description:
 #   Computes the next state of the reservoir using Heun's Method.
-# 
+#
 # Parameters:
 #   state: Numeric. The current state of the reservoir.
 #   dt: Numeric. Time step size.
 #   area: Numeric. The area of the reservoir.
 #   alpha: Numeric. The decay constant.
-# 
+#
 # Returns:
 #   Numeric. The new state of the reservoir after applying Heun's Method.
 
@@ -57,13 +57,13 @@ calculate_heuns_reservoir <- function(state, dt, area, alpha) {
 # Function: calculate_rk4_reservoir
 # Description:
 #   Calculates the next state of the reservoir using the fourth-order Runge-Kutta method.
-# 
+#
 # Parameters:
 #   state: Numeric. The current state of the reservoir.
 #   dt: Numeric. Time step size.
 #   area: Numeric. The area of the reservoir.
 #   alpha: Numeric. The decay constant.
-# 
+#
 # Returns:
 #   Numeric. The new state of the reservoir after applying the fourth-order Runge-Kutta method.
 
@@ -82,13 +82,13 @@ calculate_rk4_reservoir <- function(state, dt, area, alpha) {
 # Function: calculate_rk5_reservoir
 # Description:
 #   Calculates the next state of the reservoir using the fifth-order Runge-Kutta method.
-# 
+#
 # Parameters:
 #   state: Numeric. The current state of the reservoir.
 #   dt: Numeric. Time step size.
 #   area: Numeric. The area of the reservoir.
 #   alpha: Numeric. The decay constant.
-# 
+#
 # Returns:
 #   Numeric. The new state of the reservoir after applying the fifth-order Runge-Kutta method.
 
@@ -107,7 +107,7 @@ calculate_rk5_reservoir <- function(state, dt, area, alpha) {
 # Function: compare_methods_reservoir
 # Description:
 #   Compares the results of two numerical methods for calculating the reservoir state.
-# 
+#
 # Parameters:
 #   state: Numeric. The current state of the reservoir.
 #   dt: Numeric. Time step size.
@@ -130,8 +130,8 @@ compare_methods_reservoir <- function(state, dt, area, alpha, method1, method2) 
 # Description:
 #   Simulates the state of a reservoir over time using specified numerical methods and a variable time-stepping approach.
 #   It decreases the time step by factor every time the absolute difference of the two methods is larger than the absolute tolerance.
-#   It returns the result of using method1 if the difference is smaller enough.
-# 
+#   It returns the result of method1 if the difference is smaller enough.
+#
 # Parameters:
 #   begin_time: Numeric. The start time of the simulation.
 #   end_time: Numeric. The end time of the simulation.
@@ -143,9 +143,9 @@ compare_methods_reservoir <- function(state, dt, area, alpha, method1, method2) 
 #   tolerance: Numeric. The tolerance level for the difference between methods.
 #   method1: Function. The primary numerical method for state calculation.
 #   method2: Function. The secondary numerical method for comparison.
-# Returns: 
-#   Numeric. The new state of the reservoir after applying method1.
-  
+# Returns:
+#   List. Contains the simulation time, state, and number of iterations.
+
 simulate_reservoir <- function(begin_time, end_time, dt_start, initial_state, area, alpha, factor, tolerance, method1, method2) {
   # Initialize variables
   time <- begin_time
