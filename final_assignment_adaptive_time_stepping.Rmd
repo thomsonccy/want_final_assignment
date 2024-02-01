@@ -151,7 +151,7 @@ for (i in 1:12) {
   result_state <- c(initial_state)
   result_time <- c(time)
   current_state <- initial_state
-  
+
   while (time < end_time) {
     current_state <- calculate_euler_forward_reservoir(current_state, dt, A, alpha)
     result_state <- c(result_state, current_state)
@@ -196,7 +196,7 @@ end_time <- 50
 initial_state <- 3
 
 # Reservoir Parameters
-A <- 4.0 
+A <- 4.0
 alpha <- 1.5
 
 # Vary starting dt
@@ -205,10 +205,12 @@ for (i in 1:20) {
   factor <- 0.9
   dt_start <- i / 4
 
-  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, 
-                                           initial_state, A, alpha, factor, 
-                                           tolerance, calculate_heuns_reservoir, 
-                                           calculate_euler_forward_reservoir)
+  simulation_results <- simulate_reservoir(
+    begin_time, end_time, dt_start,
+    initial_state, A, alpha, factor,
+    tolerance, calculate_heuns_reservoir,
+    calculate_euler_forward_reservoir
+  )
 
   # Analytical solution
   time_sequence <- seq(begin_time, end_time, by = 0.1)
@@ -219,7 +221,7 @@ for (i in 1:20) {
   num_eval <- length(simulation_results$time)
   num_eval_comb_var <- cbind(num_eval_comb_var, num_eval)
   iterations_comb <- cbind(iterations_comb, simulation_results$iterations)
-   
+
   # Root-mean-square deviation
   RMSD_var <- sqrt(mean((analyt_state_compare - simulation_results$state)^2))
   RMSD_comb_var <- cbind(RMSD_comb_var, RMSD_var)
@@ -326,15 +328,15 @@ if (!"DescTools" %in% installed.packages()) {
 library(DescTools)
 
 # Running the simulation
-begin_time <- 0 
-end_time <- 50 
-dt_start <- 5 
-initial_state <- 3 
-factor <- 0.8 
-tolerance <- 0.01 
+begin_time <- 0
+end_time <- 50
+dt_start <- 5
+initial_state <- 3
+factor <- 0.8
+tolerance <- 0.01
 
 A <- 4.0
-alpha <- 1.5 
+alpha <- 1.5
 
 simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
@@ -352,7 +354,7 @@ area_under_numerical_curve <- AUC(result_time, result_state)
 # For the analytical solution
 area_under_analytical_curve <- AUC(time_sequence, analytic_state)
 
-#Calculate Absolute and Percentage Difference
+# Calculate Absolute and Percentage Difference
 absolute_difference <- abs(area_under_numerical_curve - area_under_analytical_curve)
 percentage_difference <- absolute_difference / area_under_analytical_curve * 100
 
@@ -455,6 +457,91 @@ hist(numerical_sample_global[, "dt_start"], main = "", col = "lightblue", prob =
 rug(numerical_sample_global[, "dt_start"], col = "red")
 lines(density(numerical_sample_global[, "dt_start"]), col = "red", lwd = 2)
 ```
+
+KS test
+```{R, eval = FALSE}
+# Define the parameters
+# begin_time <- 0
+# end_time <- 50
+# initial_state <- base_physical_global$initial_state
+# A <- base_physical_global$A
+# alpha <- base_physical_global$alpha
+# tolerance <- base_numerical_global$tolerance
+# dt_start <- base_numerical_global$dt_start
+# factor <- base_numerical_global$factor
+# 
+# points_for_evaluation <- c(0:50)
+# 
+# samplesize_old <- 0
+# 
+# repeat {
+#   samplesize_old <- samplesize_old + 100
+#   samplesize_new <- samplesize_old + 100
+# 
+#   both_sample_global_old <- GaussianLHS(samplesize_old, both_means_global, both_sds_global, both_names_global, both_lower_global, both_upper_global)
+#   both_sample_global_new <- GaussianLHS(samplesize_new, both_means_global, both_sds_global, both_names_global, both_lower_global, both_upper_global)
+# 
+#   simulation_results_approx_old <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
+#   
+#   # start the for-loop through the parameter sample
+#   for (i in 1:nrow(both_sample_global_old))
+#   {
+#     initial_state <- both_sample_global_old[i, "initial_state"]
+#     A <- both_sample_global_old[i, "A"]
+#     alpha <- both_sample_global_old[i, "alpha"]
+#     tolerance <- both_sample_global_old[i, "tolerance"]
+#     factor <- both_sample_global_old[i, "factor"]
+#     dt_start <- both_sample_global_old[i, "dt_start"]
+# 
+#     # Run the simulation
+#     simulation_results_old <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+#     
+#      # Extract results for plotting and further analysis
+#   result_time_old <- simulation_results_old$time
+#   result_state_old <- simulation_results_old$state
+# 
+#   # Use linear interpolation to approximate the value of the results at certain points for evaluation
+#   linear_interpolation_old <- approxfun(result_time_old, result_state_old)
+#   simulation_results_approx_old <- rbind(simulation_results_approx_old, linear_interpolation_old(points_for_evaluation))
+# 
+#   }
+#   
+#   simulation_results_approx_new <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
+#   
+#   # new
+#   # start the for-loop through the parameter sample
+#   for (i in 1:nrow(both_sample_global_new))
+#   {
+#     initial_state <- both_sample_global_new[i, "initial_state"]
+#     A <- both_sample_global_new[i, "A"]
+#     alpha <- both_sample_global_new[i, "alpha"]
+#     tolerance <- both_sample_global_new[i, "tolerance"]
+#     factor <- both_sample_global_new[i, "factor"]
+#     dt_start <- both_sample_global_new[i, "dt_start"]
+# 
+#     # Run the simulation
+#     simulation_results_new <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+#     
+#     # Extract results for plotting and further analysis
+#   result_time_new <- simulation_results_new$time
+#   result_state_new <- simulation_results_new$state
+# 
+#   # Use linear interpolation to approximate the value of the results at certain points for evaluation
+#   linear_interpolation_new <- approxfun(result_time_new, result_state_new)
+#   simulation_results_approx_new <- rbind(simulation_results_approx_new, linear_interpolation_new(points_for_evaluation))
+#   }
+#   test_result <- independence_test(data.frame(simulation_results_approx_old), data.frame(simulation_results_approx_new))
+#   # Print debugging information
+#   print(paste("Sample sizes - Old:", samplesize_old, "New:", samplesize_new, "P-value:", test_result$p.value))
+# 
+#   if (test_result$p.value < 0.05) {
+#     print("Breaking loop due to p-value less than 0.05")
+#     break
+#   }
+# }
+# print(samplesize_old)
+```
+
 
 #### GSA for physical parameters
 ```{R}
@@ -624,7 +711,6 @@ plot <- ggplot(data, aes(fill = parameters, y = variance, x = time)) +
 print(plot)
 # dev.off()
 #
-
 ```
 
 #### GSA for numerical parameters
