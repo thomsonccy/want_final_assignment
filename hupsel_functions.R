@@ -114,7 +114,7 @@ simulate_hupsel = function(begin_time, end_time, dt_start, initial_state, area, 
   result_Qout1    = c()
   result_Qout2    = c()
   result_Qin      = c()
-  
+  iterations      = 0
   # Simulation loop
   while(time < end_time) {
     dt = dt_start
@@ -130,16 +130,16 @@ simulate_hupsel = function(begin_time, end_time, dt_start, initial_state, area, 
     result_time = c(result_time, time)
   }
   
-  return(list(time = result_time, state = result_state))
+  return(list(time = result_time, state = result_state, iterations = iterations))
 }
 
 ##first a function (state.above.up) to determine which states are above the upper outlet
-calculate_water_level_above_upper = function(res_lvl_up)
+calculate_water_level_above_upper = function(res_lvl_up, simulation_result)
 {
   water_level_above_upper = c()
-  for (i in 1:length(simulation_hepsel_results$time))
+  for (i in 1:length(simulation_result$time))
   {
-    current_water_level = simulation_hepsel_results$state[i]
+    current_water_level = simulation_result$state[i]
     if(current_water_level>res_lvl_up)
     {
       water_level_above_upper=c(water_level_above_upper,current_water_level)
@@ -148,4 +148,34 @@ calculate_water_level_above_upper = function(res_lvl_up)
     }
   }
   return(water_level_above_upper)
+}
+
+calculate_water_level_fixed_hupsel = function(time, state, dt, area, res_alpha_lw, res_alpha_up, res_lvl_up)
+{
+  if(state<= res_lvl_up)
+  {
+    state = state +dt/area*(approximate_Qin(time)- res_alpha_lw*state)
+  }else{
+    state = state + dt/area*(approximate_Qin(time)-res_alpha_up*(state-res_lvl_up)-res_alpha_lw*state)
+  }
+  return(state)
+}
+
+simulate_fixed_hupsel = function(begin_time, end_time, dt, initial_state, area, alpha_lower, alpha_upper, level_upper) {
+  # Initialize variables
+  time            = begin_time
+  result_state    = c(initial_state)
+  result_time     = c(time)
+  current_state   = initial_state
+  result_Qout1    = c()
+  result_Qout2    = c()
+  result_Qin      = c()
+  while(time < end_time)
+  {
+    current_state = calculate_water_level_fixed_hupsel(time, current_state, dt, area, alpha_lower, alpha_upper, level_upper)
+    result_state  = c(result_state,current_state)
+    time          = time + dt
+    result_time   = c(result_time,time)
+  }
+  return(list(time = result_time, state = result_state))
 }

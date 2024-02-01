@@ -47,1036 +47,1385 @@ You are free to explore any other questions that arise with the model. For examp
 $$s(t + \Delta t)=s(t)+\dfrac{\Delta t}{A}
 \left(Q_{in}-\alpha_{res.up}(s(t)-level_{res.up})-\alpha_{res.lw}\:s(t)\right)\\$$
 
-Make sure working directory is set to the folder "want_final_assignment"
+# Setting the Working Directory
+Ensure the working directory is set to the folder "want_final_assignment_group_12". The following code checks the current working directory:
+
 ```{R}
-# This line outputs your current working directory
-# It should show ".../want_final_assignment_group_12"
+# Outputs the current working directory
 getwd()
 ```
 
+# Solution
 
-Load custom functions in "reservoir_functions.R"
+### Loading Custom Functions
+First, we load the necessary functions from the "reservoir_functions.R" script. This script contains custom functions for our simulation.
 ```{R}
 source("reservoir_functions.R")
 ```
 
 
-# Calculate water level in reservoir using Euler Forward and Heun's Method
-# Compare the absolute difference between Euler Forward and Heun's Method
-# If difference is smaller than tolerance, the result from Heun's method is accepted
-# If difference is larger than tolerance, it recalculates using 
-# new time step = old time step * factor
-# until the difference is smaller than tolerance
+## Euler Forward and Heun's Method
+We compare the absolute difference between the results from Euler Forward and Heun's Method. If this difference is smaller than a predefined absolute tolerance, the result from Heun's method is accepted. If the difference exceeds the tolerance, the calculation is repeated with a new time step. The new time step is adjusted as follows:
+$$dt_{new}=dt_{old}\cdot factor$$
+where $factor$ is a user-defined value. This process continues until the absolute difference falls below the tolerance level.
 
 
+### Implementation
 ```{R}
-# Define the parameters
-begin_time = 0
-end_time = 50
+# Discretisation Parameters
+begin_time <- 0 # start time of the simulation
+end_time <- 50 # end time of the simulation
+dt_start <- 5 # delta t; time discretisation
+initial_state <- 3 # water level of the reservoir at the beginning of the simulation
+factor <- 0.8 # factor which delta t deceases each time the absolute difference of the two methods is larger than tolerance
+tolerance <- 0.01 # user-defined max absolute difference of the two methods accepted
+
+# Reservoir Parameters
+A <- 4.0 # area
+alpha <- 1.5 # decay constant
 
 
-dt_start  = 5
+# Running the simulation
+simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
-initial_state = 3
-A = 4.0
-alpha = 1.5
-factor = 0.8
-tolerance = 0.01
 
-# Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+# Extract results
+result_time <- simulation_results$time
+result_state <- simulation_results$state
 
-# Extract results for plotting and further analysis
-result_time = simulation_results$time
-result_state = simulation_results$state
 
-# Analytical solution
-time_sequence = seq(begin_time,end_time, by=0.1)
-analytic_state=initial_state * exp(-time_sequence*alpha/A)
+# Analytical Solution for Comparison
+time_sequence <- seq(begin_time, end_time, by = 0.1)
+analytic_state <- initial_state * exp(-time_sequence * alpha / A)
+analytic_state_at_discrete_time_step <- initial_state * exp(-result_time * alpha / A)
 
-# state of analytical solution to compare with numerical solution at every time step
-analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
 
-# state of analytical to be compatiable with Isa's solution
-analyt.state=initial_state * exp(-result_time*alpha/A)
-
-# Plotting
-plot(result_time, result_state,type='o', xlab="time", ylab="state", col="blue")
-lines(result_time, analytic_state_at_discrete_time_step, col='grey', lwd=2)
-title(main='Emptying reservoir')
+# Plotting Results
+plot(result_time, result_state, type = "o", xlab = "time", ylab = "state", col = "blue")
+lines(result_time, analytic_state_at_discrete_time_step, col = "grey", lwd = 2)
+title(main = "Emptying reservoir")
 grid()
 
+# Performance Metrics
+
 # Number of function evaluations
-num_eval = length(result_time)
+num_eval <- length(result_time)
+print(paste("Number of function evaluations:", num_eval))
 
-#global_truncation_error = 
-
-# Error at each time step
-analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
+# Absolute error at each time step
+analytical_comparison <- abs(analytic_state_at_discrete_time_step - result_state)
 
 # Root-mean-square deviation
-RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
-print(paste("The root mean square deviation is:", RMSD))
+RMSD <- sqrt(sum(analytical_comparison^2) / length(analytical_comparison))
+print(paste("Root Mean Square Deviation (RMSD):", RMSD))
 ```
 
-Calculate total error in the whole domain
+
+### Evaluate Gain between Fixed and Variable Time-Stepping
+This section evaluates the performance of fixed and variable time-stepping methods in a reservoir simulation. We aim to understand the trade-off between accuracy (measured using RMSE) and computational efficiency (measured by the number of function evaluations).
+
+#### Fixed Time-Stepping Simulation
+We run 12 simulations with fixed time steps varying from 1/8 to 12/8:
 ```{R}
-# Install package for area under curve
-if (!"DescTools" %in% installed.packages()) {install.packages("DescTools")}
+# Discretisation Parameters
+begin_time <- 0
+end_time <- 50
+dt_start <- 10
+initial_state <- 3
+
+# Reservoir Parameters
+A <- 4.0
+alpha <- 1.5
+
+
+# Running Simulation
+# Vectors for storing results
+num_eval_comb_fix <- c()
+RMSD_comb_fix <- c()
+
+for (i in 1:12) {
+  dt <- i / 8
+
+  # Simulation Initialisation
+  time <- begin_time
+  result_state <- c(initial_state)
+  result_time <- c(time)
+  current_state <- initial_state
+  
+  while (time < end_time) {
+    current_state <- calculate_euler_forward_reservoir(current_state, dt, A, alpha)
+    result_state <- c(result_state, current_state)
+    time <- time + dt
+    result_time <- c(result_time, time)
+  }
+
+  # Analytical Solution
+  time.sequence <- seq(begin_time, end_time, by = 0.1)
+  analyt_state <- initial_state * exp(-time.sequence * alpha / A)
+  analyt_state_compare <- initial_state * exp(-result_time * alpha / A)
+
+  # Plotting Result
+  plot(result_time, result_state, type = "o", xlab = "time", ylab = "state")
+  lines(time.sequence, analyt_state, col = "grey", lwd = 2)
+  title(main = "Emptying reservoir")
+  grid()
+
+  # Number of function evaluations
+  num_eval <- length(result_time)
+  num_eval_comb_fix <- cbind(num_eval_comb_fix, num_eval)
+  # print(paste("Number of function evaluations:", num_eval))
+
+  # Root-mean-square deviation
+  RMSD_fix <- sqrt(mean((analyt_state_compare - result_state)^2))
+  RMSD_comb_fix <- cbind(RMSD_comb_fix, RMSD_fix)
+}
+
+plot(num_eval_comb_fix, RMSD_comb_fix)
+```
+
+#### Simulation with Varying Starting dt
+```{r}
+# Vectors for storing results
+num_eval_comb_var <- c()
+RMSD_comb_var <- c()
+iterations_comb <- c()
+
+# Discretisation Parameters
+begin_time <- 0
+end_time <- 50
+initial_state <- 3
+
+# Reservoir Parameters
+A <- 4.0 
+alpha <- 1.5
+
+# Vary starting dt
+for (i in 1:20) {
+  tolerance <- 10^-2
+  factor <- 0.9
+  dt_start <- i / 4
+
+  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, 
+                                           initial_state, A, alpha, factor, 
+                                           tolerance, calculate_heuns_reservoir, 
+                                           calculate_euler_forward_reservoir)
+
+  # Analytical solution
+  time_sequence <- seq(begin_time, end_time, by = 0.1)
+  analyt_state <- initial_state * exp(-time_sequence * alpha / A)
+  analyt_state_compare <- initial_state * exp(-simulation_results$time * alpha / A)
+
+  # Number of function evaluations and iterations
+  num_eval <- length(simulation_results$time)
+  num_eval_comb_var <- cbind(num_eval_comb_var, num_eval)
+  iterations_comb <- cbind(iterations_comb, simulation_results$iterations)
+   
+  # Root-mean-square deviation
+  RMSD_var <- sqrt(mean((analyt_state_compare - simulation_results$state)^2))
+  RMSD_comb_var <- cbind(RMSD_comb_var, RMSD_var)
+}
+
+# Plotting Result
+plot(num_eval_comb_fix, RMSD_comb_fix, col = "red", xlab = "Number of evaluations", ylab = "RMSD", ylim = c(0, 0.2), xlim = c(0, 200))
+points(num_eval_comb_var, RMSD_comb_var, col = "blue")
+
+plot(num_eval_comb_fix, RMSD_comb_fix, type = "l", col = "red", xlab = "Number of evaluations", ylab = "RMSD", ylim = c(0, 0.2), xlim = c(0, 600))
+points(iterations_comb, RMSD_comb_var, type = "l", col = "blue")
+```
+
+
+### Analysis of the CK Scheme: Evaluating ME and RMSE against Number of Evaluations
+This section analyzes the performance of the Cash-Karp (CK) scheme in the reservoir simulation. We aim to understand how the Mean Error (ME) and Root Mean Square Error (RMSE) vary with the number of evaluations under different tolerance settings.
+
+```{r}
+# Vectors for storing results
+num_eval_comb <- c()
+ME_comb <- c()
+RMSD_comb <- c()
+
+# Discretisation Parameters
+begin_time <- 0
+end_time <- 50
+initial_state <- 3
+
+# Reservoir Parameters
+A <- 4.0
+alpha <- 1.5
+
+dt_start <- 3
+
+# Vary tolerance
+for (i in 1:12) {
+  tolerance <- 10^-(i / 2)
+  factor <- 0.9
+
+  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+
+  # Analytical solution
+  time_sequence <- seq(begin_time, end_time, by = 0.1)
+  analyt_state <- initial_state * exp(-time_sequence * alpha / A)
+  analyt_state_compare <- initial_state * exp(-simulation_results$time * alpha / A)
+
+  # Number of function evaluations
+  num_eval <- length(simulation_results$time)
+  # print(num_eval)
+
+
+  ME <- mean(analyt_state_compare - simulation_results$state)
+  RMSD <- sqrt(mean((analyt_state_compare - simulation_results$state)^2))
+
+  num_eval_comb <- cbind(num_eval_comb, num_eval)
+  ME_comb <- cbind(ME_comb, ME)
+  RMSD_comb <- cbind(RMSD_comb, RMSD)
+}
+
+
+# Vectors for storing results
+num_eval_comb_3 <- c()
+ME_comb_3 <- c()
+RMSD_comb_3 <- c()
+
+dt_start <- 3
+
+# Vary tolerance
+for (i in 1:12) {
+  tolerance <- 10^-(i / 2)
+  factor <- 0.3
+
+  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_rk4_reservoir, calculate_rk5_reservoir)
+
+  # Analytical solution
+  time_sequence <- seq(begin_time, end_time, by = 0.1)
+  analyt_state <- initial_state * exp(-time_sequence * alpha / A)
+  analyt_state_compare <- initial_state * exp(-simulation_results$time * alpha / A)
+
+  # Number of function evaluations
+  num_eval <- length(simulation_results$time)
+  # print(num_eval)
+
+  ME <- mean(analyt_state_compare - simulation_results$state)
+  RMSD <- sqrt(mean((analyt_state_compare - simulation_results$state)^2))
+
+  num_eval_comb_3 <- cbind(num_eval_comb_3, num_eval)
+  ME_comb_3 <- cbind(ME_comb_3, ME)
+  RMSD_comb_3 <- cbind(RMSD_comb_3, RMSD)
+}
+
+# Plotting the result
+plot(num_eval_comb, RMSD_comb, type = "p", col = "blue")
+points(num_eval_comb, RMSD_comb_3, type = "p", col = "red")
+```
+
+
+Calculate total error in the entire domain of a simulation by comparing the areas under the numerical and analytical curves
+```{R}
+# Check and Install 'DescTools' Package
+if (!"DescTools" %in% installed.packages()) {
+  install.packages("DescTools", repos = "http://cran.us.r-project.org")
+}
 library(DescTools)
 
-# Calculate with area under curve
-area_under_numercial_curve = AUC(result_time, result_state)
-area_under_analytical_curve = AUC(time_sequence, analytic_state)
-print(paste0("The absolute and percentage difference between analytical and numerical solution is: ", 
-            abs(area_under_numercial_curve - area_under_analytical_curve), " and ", 
-            abs(area_under_numercial_curve - area_under_analytical_curve) / area_under_analytical_curve * 100, "%"))
-print(paste("The number of evaluations is", num_eval))
+# Running the simulation
+begin_time <- 0 
+end_time <- 50 
+dt_start <- 5 
+initial_state <- 3 
+factor <- 0.8 
+tolerance <- 0.01 
+
+A <- 4.0
+alpha <- 1.5 
+
+simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+
+result_time <- simulation_results$time
+result_state <- simulation_results$state
+
+time_sequence <- seq(begin_time, end_time, by = 0.1)
+analytic_state <- initial_state * exp(-time_sequence * alpha / A)
+analytic_state_at_discrete_time_step <- initial_state * exp(-result_time * alpha / A)
+
+# Calculate Area Under Curves
+# For the numerical solution
+area_under_numerical_curve <- AUC(result_time, result_state)
+
+# For the analytical solution
+area_under_analytical_curve <- AUC(time_sequence, analytic_state)
+
+#Calculate Absolute and Percentage Difference
+absolute_difference <- abs(area_under_numerical_curve - area_under_analytical_curve)
+percentage_difference <- absolute_difference / area_under_analytical_curve * 100
+
+# Output the differences and number of evaluations
+print(paste0("The absolute and percentage difference between analytical and numerical solutions is: ", absolute_difference, " and ", percentage_difference, "%."))
+# print(paste("The number of evaluations is", num_eval))
 ```
 
 
-
-
-# Global sensitivity analysis
+### Global sensitivity analysis
+This section performs a global sensitivity analysis on our reservoir simulation model to better understand the influence of both physical and numerical parameters on the model's output. We use Latin Hypercube Sampling (LHS) to efficiently explore the parameter space.
 ```{R}
+# Load function to generate samples using LHS
 source("samplehelpers.R")
+```
 
-base_physical_global = list(initial_state=initial_state, A = A, alpha = alpha)
-scale_physical_global = list(initial_state= 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha)
-base_numerical_global = list(tolerance = tolerance, factor = factor, dt_start = dt_start)
-scale_numerical_global = list(tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
+#### Parameter Setup
+We define the base values and scales for physical and numerical parameters:
+```{R}
+# Base Values
+begin_time <- 0
+end_time <- 50
+dt_start <- 5
+initial_state <- 3
+A <- 4.0
+alpha <- 1.5
+factor <- 0.8
+tolerance <- 0.01
 
-physical_names_global = names(base_physical_global)
-physical_means_global = unlist(base_physical_global)
-physical_sds_global    = unlist(scale_physical_global)
+# Base and scale for physical and numerical parameters
+base_physical_global <- list(initial_state = initial_state, A = A, alpha = alpha)
+scale_physical_global <- list(initial_state = 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha)
+base_numerical_global <- list(tolerance = tolerance, factor = factor, dt_start = dt_start)
+scale_numerical_global <- list(tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
+base_both_global <- list(initial_state = initial_state, A = A, alpha = alpha, tolerance = tolerance, factor = factor, dt_start = dt_start)
+scale_both_global <- list(initial_state = 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha, tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
+scale_numerical_global <- list(tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
 
-numerical_names_global = names(base_numerical_global)
-numerical_means_global = unlist(base_numerical_global)
-numerical_sds_global    = unlist(scale_numerical_global)
+physical_names_global <- names(base_physical_global)
+physical_means_global <- unlist(base_physical_global)
+physical_sds_global <- unlist(scale_physical_global)
 
-physical_lower_global = c(2, 3.5, 1)
-physical_upper_global = c(4, 4.5, 2)
+numerical_names_global <- names(base_numerical_global)
+numerical_means_global <- unlist(base_numerical_global)
+numerical_sds_global <- unlist(scale_numerical_global)
 
-numerical_lower_global = c(0.0005, 0.5, 0.01)
-numerical_upper_global = c(0.05, 0.99, 20)
+both_names_global <- names(base_both_global)
+both_means_global <- unlist(base_both_global)
+both_sds_global <- unlist(scale_both_global)
 
-samplesize = 1000
+# Define ranges for physical and numerical parameters
+physical_lower_global <- c(2, 3.5, 1)
+physical_upper_global <- c(4, 4.5, 2)
+
+numerical_lower_global <- c(0.0005, 0.5, 0.01)
+numerical_upper_global <- c(0.05, 0.99, 20)
+
+both_lower_global <- c(2, 3.5, 1, 0.0005, 0.5, 0.01)
+both_upper_global <- c(4, 4.5, 2, 0.05, 0.99, 20)
+
+# Using Gaussian LHS to generate samples within the specified ranges
+# Sample size and random seed
+samplesize <- 1000
 set.seed(237)
 
-physical_sample_global = GaussianLHS(samplesize,physical_means_global,physical_sds_global,physical_names_global,physical_lower_global,physical_upper_global) 
+physical_sample_global <- GaussianLHS(samplesize, physical_means_global, physical_sds_global, physical_names_global, physical_lower_global, physical_upper_global)
 
-numerical_sample_global = GaussianLHS(samplesize,numerical_means_global,numerical_sds_global,numerical_names_global,numerical_lower_global,numerical_upper_global) 
+numerical_sample_global <- GaussianLHS(samplesize, numerical_means_global, numerical_sds_global, numerical_names_global, numerical_lower_global, numerical_upper_global)
 
-# head(physical_sample_global)
-# summary(physical_sample_global)
-plot(physical_sample_global,cex=0.4)
-plot(numerical_sample_global,cex=0.4)
+both_sample_global <- GaussianLHS(samplesize, both_means_global, both_sds_global, both_names_global, both_lower_global, both_upper_global)
 
-old.par = par(no.readonly=TRUE)
-par(mfrow=c(2,3))
-hist(physical_sample_global[,"initial_state"],main="",col="lightblue",prob=TRUE)
-rug(physical_sample_global[,"initial_state"],col="red")
-lines(density(physical_sample_global[,"initial_state"]),col="red",lwd=2)
-hist(physical_sample_global[,"A"],main="",col="lightblue",prob=TRUE)
-rug(physical_sample_global[,"A"],col="red")
-lines(density(physical_sample_global[,"A"]),col="red",lwd=2)
-hist(physical_sample_global[,"alpha"],main="",col="lightblue",prob=TRUE)
-rug(physical_sample_global[,"alpha"],col="red")
-lines(density(physical_sample_global[,"alpha"]),col="red",lwd=2)
+# plot(physical_sample_global, cex = 0.4)
+# plot(numerical_sample_global, cex = 0.4)
+# plot(both_sample_global, cex = 0.4)
 
-hist(numerical_sample_global[,"tolerance"],main="",col="lightblue",prob=TRUE)
-rug(numerical_sample_global[,"tolerance"],col="red")
-lines(density(numerical_sample_global[,"tolerance"]),col="red",lwd=2)
-hist(numerical_sample_global[,"factor"],main="",col="lightblue",prob=TRUE)
-rug(numerical_sample_global[,"factor"],col="red")
-lines(density(numerical_sample_global[,"factor"]),col="red",lwd=2)
-hist(numerical_sample_global[,"dt_start"],main="",col="lightblue",prob=TRUE)
-rug(numerical_sample_global[,"dt_start"],col="red")
-lines(density(numerical_sample_global[,"dt_start"]),col="red",lwd=2)
+# Plotting histograms of samples
+old.par <- par(no.readonly = TRUE)
+par(mfrow = c(2, 3))
+hist(physical_sample_global[, "initial_state"], main = "", col = "lightblue", prob = TRUE)
+rug(physical_sample_global[, "initial_state"], col = "red")
+lines(density(physical_sample_global[, "initial_state"]), col = "red", lwd = 2)
+
+hist(physical_sample_global[, "A"], main = "", col = "lightblue", prob = TRUE)
+rug(physical_sample_global[, "A"], col = "red")
+lines(density(physical_sample_global[, "A"]), col = "red", lwd = 2)
+
+hist(physical_sample_global[, "alpha"], main = "", col = "lightblue", prob = TRUE)
+rug(physical_sample_global[, "alpha"], col = "red")
+lines(density(physical_sample_global[, "alpha"]), col = "red", lwd = 2)
+
+hist(numerical_sample_global[, "tolerance"], main = "", col = "lightblue", prob = TRUE)
+rug(numerical_sample_global[, "tolerance"], col = "red")
+lines(density(numerical_sample_global[, "tolerance"]), col = "red", lwd = 2)
+
+hist(numerical_sample_global[, "factor"], main = "", col = "lightblue", prob = TRUE)
+rug(numerical_sample_global[, "factor"], col = "red")
+lines(density(numerical_sample_global[, "factor"]), col = "red", lwd = 2)
+
+hist(numerical_sample_global[, "dt_start"], main = "", col = "lightblue", prob = TRUE)
+rug(numerical_sample_global[, "dt_start"], col = "red")
+lines(density(numerical_sample_global[, "dt_start"]), col = "red", lwd = 2)
 ```
 
+#### GSA for physical parameters
 ```{R}
-# GSA for physical parameters
-state_physical_global = matrix(0,ncol=length(result_time),nrow=0)
-time_physical_global = matrix(0,ncol=length(result_time),nrow=0)
+state_physical_global <- matrix(0, ncol = length(result_time), nrow = 0)
+time_physical_global <- matrix(0, ncol = length(result_time), nrow = 0)
 
 # Define the parameters
-begin_time = 0
-end_time = 50
-initial_state = base_physical_global$initial_state
-A = base_physical_global$A
-alpha = base_physical_global$alpha
-tolerance = base_numerical_global$tolerance
-dt_start = base_numerical_global$dt_start
-factor = base_numerical_global$factor
+begin_time <- 0
+end_time <- 50
+initial_state <- base_physical_global$initial_state
+A <- base_physical_global$A
+alpha <- base_physical_global$alpha
+tolerance <- base_numerical_global$tolerance
+dt_start <- base_numerical_global$dt_start
+factor <- base_numerical_global$factor
 
-# point to evaluate
-points_for_evaluation = c(0:50)
+# Points to evaluate
+points_for_evaluation <- c(0:50)
 
-simulation_results_approx = matrix(0,ncol=length(points_for_evaluation),nrow=0)
+simulation_results_approx <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
 
-# start the for-loop through the parameter sample 
-for(i in 1:nrow(physical_sample_global))
-  {
-    initial_state = physical_sample_global[i,"initial_state"]
-    A = physical_sample_global[i,"A"] 
-    alpha = physical_sample_global[i,"alpha"]
-    
-# Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+# Start the for-loop through the parameter sample
+for (i in 1:nrow(physical_sample_global))
+{
+  initial_state <- physical_sample_global[i, "initial_state"]
+  A <- physical_sample_global[i, "A"]
+  alpha <- physical_sample_global[i, "alpha"]
 
-# Extract results for plotting and further analysis
-result_time = simulation_results$time
-result_state = simulation_results$state
+  # Run the simulation
+  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
-linear_interpolation = approxfun(result_time, result_state)
-simulation_results_approx = rbind(simulation_results_approx,linear_interpolation(points_for_evaluation))
+  # Extract results for plotting and further analysis
+  result_time <- simulation_results$time
+  result_state <- simulation_results$state
 
-# Analytical solution
-time_sequence = seq(begin_time,end_time, by=0.1)
-analytic_state=initial_state * exp(-time_sequence*alpha/A)
+  # Use linear interpolation to approximate the value of the results at certain points for evaluation
+  linear_interpolation <- approxfun(result_time, result_state)
+  simulation_results_approx <- rbind(simulation_results_approx, linear_interpolation(points_for_evaluation))
 
-# state of analytical solution to compare with numerical solution at every time step
-analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
+  # Analytical solution
+  time_sequence <- seq(begin_time, end_time, by = 0.1)
+  analytic_state <- initial_state * exp(-time_sequence * alpha / A)
 
-# Plotting
-# plot(result_time, result_state,type='o', xlab="time", ylab="state", col="blue")
-# lines(result_time, analytic_state_at_discrete_time_step, col='grey', lwd=2)
-# title(main='Emptying reservoir')
-# grid()
+  # Water Level of analytical solution to compare with numerical solution at every time step
+  analytic_state_at_discrete_time_step <- initial_state * exp(-result_time * alpha / A)
 
-# Number of function evaluations
-num_eval = length(result_time)
+  # Number of function evaluations
+  num_eval <- length(result_time)
 
-# Error at each time step
-analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
+  # Error at each time step
+  analytical_comparison <- abs(analytic_state_at_discrete_time_step - result_state)
 
-# Root-mean-square deviation
-# RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
-# print(paste("The root mean square deviation is:", RMSD))
-# print(paste("The number of evaluations is", num_eval))
-# statesSample = rbind(statesSample,simulation_results$state)
-# timeSample = rbind(timeSample,simulation_results$time)
+  # Root-mean-square deviation
+  # RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
+  # print(paste("The root mean square deviation is:", RMSD))
+  # print(paste("The number of evaluations is", num_eval))
 }
 
-if (!"matrixStats" %in% installed.packages()) {install.packages("matrixStats")}
+# Check and Install 'matrixStats' Package
+if (!"matrixStats" %in% installed.packages()) {
+  install.packages("matrixStats")
+}
 library(matrixStats)
-matplot(t(time_physical_global),t(state_physical_global),type="l",main="States for all parameter sets",ylab="water level")
-matplot(points_for_evaluation,t(simulation_results_approx),type="l",main="States for all parameter sets",ylab="water level")
 
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],physical_sample_global)
-  plot(MPsample[,"initial_state"], MPsample[,"M"], main=paste("Value of initial state versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondinitial_state = linloess(M~initial_state,data=MPsample)
-  points(MPsample[,"initial_state"],Mcondinitial_state,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],physical_sample_global)
-  plot(MPsample[,"A"], MPsample[,"M"], main=paste("Value of A versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  McondA = linloess(M~A,data=MPsample)
-  points(MPsample[,"A"],McondA,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],physical_sample_global)
-  plot(MPsample[,"alpha"], MPsample[,"M"], main=paste("Value of alpha versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondalpha = linloess(M~alpha,data=MPsample)
-  points(MPsample[,"alpha"],Mcondalpha,pch=20,col="red")
-}
-
-variance_initial_state = c()
-variance_A = c()
-variance_alpha = c()
-variance_model = c()
-  
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],physical_sample_global)
-  VARM = var(simulation_results_approx[,i])
-  variance_model = c(variance_model, VARM)
-  SDM = sd(simulation_results_approx[,i])
-  ANOVA1 = sample.vardecomp(MPsample)
-  variance_initial_state = c(variance_initial_state, ANOVA1[[1]])
-  variance_A = c(variance_A, ANOVA1[[2]])
-  variance_alpha = c(variance_alpha, ANOVA1[[3]])
-  
-  added_var <- 0
-  for (j in c(1:length(ANOVA1))) {
-  added_var <- added_var + ANOVA1[[j]]
-}
-  pie(ANOVA1,
-    main=paste("Variance of M =", VARM, "at t =", i-1, 
-               "\nRemaining variance is", VARM - added_var),
-    col = rainbow(5),
-    radius=1)
-}
-
-if (!"ggplot2" %in% installed.packages()) {install.packages("ggplot2")}
-library(ggplot2)
-
-# create a dataset
-parameters <- (c(rep("initial_state", length(points_for_evaluation) - 1), rep("A", length(points_for_evaluation) - 1), rep("alpha", length(points_for_evaluation) - 1), rep("unexplained_variance", length(points_for_evaluation) - 1)))
-variance <- c(abs(variance_initial_state/variance_model), abs(variance_A/variance_model), abs(variance_alpha/variance_model), abs((variance_model-variance_initial_state-variance_A-variance_alpha)/variance_model))
-time <- c(1:(length(points_for_evaluation)-1),1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1)) 
-data <- data.frame(time, parameters, variance) 
-
-# Stacked
-# data$parameters = relevel(data$parameters, 'unexplained_variance')
-data$parameters <- factor(data$parameters, levels = c("unexplained_variance", "initial_state", "A", "alpha"))
-
-png("gsa_physical_variance.png", width=900, height=450)
-plot = ggplot(data, aes(fill=parameters, y=variance, x=time)) +
-  geom_bar(position="stack", stat="identity", linewidth=0.3) +
-  ggtitle("Relative ontribution to variance for physical parameters") +
-  xlab("Time") + 
-  ylab("Relative contribution to variance")
-print(plot)
-dev.off()
-# 
-# temp_data = data.frame(time = c(1:(length(points_for_evaluation)-1)), model_variance = variance_model)
-# ggplot(temp_data,  aes(y=model_variance, x=time)) +
-#   geom_line()
-
-
+# Plotting the result
+matplot(t(time_physical_global), t(state_physical_global), type = "l", main = "States for all parameter sets", ylab = "water level")
+matplot(points_for_evaluation, t(simulation_results_approx), type = "l", main = "States for all parameter sets", ylab = "water level")
 ```
-
 
 ```{R}
-# Install package 
-
+# Check and Install 'gifski' Package to combine plots into animations after knitting to html
+if (!"gifski" %in% installed.packages()) {
+  install.packages("gifski", repos = "http://cran.us.r-project.org")
+}
+library(gifski)
 ```
 
-```{r, animation.hook="gifski", interval = 0.3}
-
-
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting conditional expectation at different time steps
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], physical_sample_global)
+  plot(MPsample[, "initial_state"], MPsample[, "M"], main = paste("Value of initial state versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondinitial_state <- linloess(M ~ initial_state, data = MPsample)
+  points(MPsample[, "initial_state"], Mcondinitial_state, pch = 20, col = "red")
+}
 ```
-
-
-```{r, animation.hook="gifski", interval = 0.3}
-
-
-```
-
-
-
 
 
 ```{R, animation.hook="gifski", interval = 0.3}
+# Plotting conditional expectation at different time steps
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], physical_sample_global)
+  plot(MPsample[, "A"], MPsample[, "M"], main = paste("Value of area versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  McondA <- linloess(M ~ A, data = MPsample)
+  points(MPsample[, "A"], McondA, pch = 20, col = "red")
+}
+```
+
+
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting conditional expectation at different time steps
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], physical_sample_global)
+  plot(MPsample[, "alpha"], MPsample[, "M"], main = paste("Value of alpha versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondalpha <- linloess(M ~ alpha, data = MPsample)
+  points(MPsample[, "alpha"], Mcondalpha, pch = 20, col = "red")
+}
+```
+
+
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting variance contribution of parameters to the model at different time steps as pie charts
+variance_initial_state <- c()
+variance_A <- c()
+variance_alpha <- c()
+variance_model <- c()
+
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], physical_sample_global)
+  VARM <- var(simulation_results_approx[, i])
+  variance_model <- c(variance_model, VARM)
+  SDM <- sd(simulation_results_approx[, i])
+  ANOVA1 <- sample.vardecomp(MPsample)
+  variance_initial_state <- c(variance_initial_state, ANOVA1[[1]])
+  variance_A <- c(variance_A, ANOVA1[[2]])
+  variance_alpha <- c(variance_alpha, ANOVA1[[3]])
+
+  added_var <- 0
+  for (j in c(1:length(ANOVA1))) {
+    added_var <- added_var + ANOVA1[[j]]
+  }
+  pie(ANOVA1,
+    main = paste(
+      "Variance of M =", VARM, "at t =", i - 1,
+      "\nRemaining variance is", VARM - added_var
+    ),
+    col = rainbow(5),
+    radius = 1
+  )
+}
+```
+
+
+```{R}
+# Check and Install 'ggplot2' Package for plotting
+if (!"ggplot2" %in% installed.packages()) {
+  install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+}
+library(ggplot2)
+
+# Plotting variance contribution of parameters to the model at different time steps as a bar chart
+# Create a dataset
+parameters <- (c(rep("initial_state", length(points_for_evaluation) - 1), rep("A", length(points_for_evaluation) - 1), rep("alpha", length(points_for_evaluation) - 1), rep("unexplained_variance", length(points_for_evaluation) - 1)))
+variance <- c(abs(variance_initial_state / variance_model), abs(variance_A / variance_model), abs(variance_alpha / variance_model), abs((variance_model - variance_initial_state - variance_A - variance_alpha) / variance_model))
+time <- c(1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1))
+data <- data.frame(time, parameters, variance)
+
+# Stacked Barchart
+data$parameters <- factor(data$parameters, levels = c("unexplained_variance", "initial_state", "A", "alpha"))
+
+# png("gsa_physical_variance.png", width=900, height=450)
+plot <- ggplot(data, aes(fill = parameters, y = variance, x = time)) +
+  geom_bar(position = "stack", stat = "identity", linewidth = 0.3) +
+  ggtitle("Relative contribution to variance for physical parameters") +
+  xlab("Time") +
+  ylab("Relative contribution to variance")
+print(plot)
+# dev.off()
+#
 
 ```
 
+#### GSA for numerical parameters
 ```{R}
-# GSA for numerical parameters
-state_numerical_global = matrix(0,ncol=length(result_time),nrow=0)
-time_numerical_global = matrix(0,ncol=length(result_time),nrow=0)
+state_numerical_global <- matrix(0, ncol = length(result_time), nrow = 0)
+time_numerical_global <- matrix(0, ncol = length(result_time), nrow = 0)
 
 # Define the parameters
-begin_time = 0
-end_time = 50
-initial_state = base_physical_global$initial_state
-A = base_physical_global$A
-alpha = base_physical_global$alpha
+begin_time <- 0
+end_time <- 50
+initial_state <- base_physical_global$initial_state
+A <- base_physical_global$A
+alpha <- base_physical_global$alpha
 
-tolerance = base_numerical_global$tolerance
-factor = base_numerical_global$factor
-dt_start = base_numerical_global$dt_start
+tolerance <- base_numerical_global$tolerance
+factor <- base_numerical_global$factor
+dt_start <- base_numerical_global$dt_start
 
 # point to evaluate
-points_for_evaluation = c(0:50)
+points_for_evaluation <- c(0:50)
 
-simulation_results_approx = matrix(0,ncol=length(points_for_evaluation),nrow=0)
+simulation_results_approx <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
 
-# start the for-loop through the parameter sample 
-for(i in 1:nrow(numerical_sample_global))
-  {
-    tolerance = numerical_sample_global[i,"tolerance"]
-    factor = numerical_sample_global[i,"factor"] 
-    dt_start = numerical_sample_global[i,"dt_start"]
-    
-# Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+# start the for-loop through the parameter sample
+for (i in 1:nrow(numerical_sample_global))
+{
+  tolerance <- numerical_sample_global[i, "tolerance"]
+  factor <- numerical_sample_global[i, "factor"]
+  dt_start <- numerical_sample_global[i, "dt_start"]
 
-# Extract results for plotting and further analysis
-result_time = simulation_results$time
-result_state = simulation_results$state
+  # Run the simulation
+  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
 
-linear_interpolation = approxfun(result_time, result_state)
-simulation_results_approx = rbind(simulation_results_approx,linear_interpolation(points_for_evaluation))
+  # Extract results for plotting and further analysis
+  result_time <- simulation_results$time
+  result_state <- simulation_results$state
 
-# Analytical solution
-time_sequence = seq(begin_time,end_time, by=0.1)
-analytic_state=initial_state * exp(-time_sequence*alpha/A)
+  linear_interpolation <- approxfun(result_time, result_state)
+  simulation_results_approx <- rbind(simulation_results_approx, linear_interpolation(points_for_evaluation))
 
-# state of analytical solution to compare with numerical solution at every time step
-analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
+  # Analytical solution
+  time_sequence <- seq(begin_time, end_time, by = 0.1)
+  analytic_state <- initial_state * exp(-time_sequence * alpha / A)
 
-# Plotting
-# plot(result_time, result_state,type='o', xlab="time", ylab="state", col="blue")
-# lines(result_time, analytic_state_at_discrete_time_step, col='grey', lwd=2)
-# title(main='Emptying reservoir')
-# grid()
+  # state of analytical solution to compare with numerical solution at every time step
+  analytic_state_at_discrete_time_step <- initial_state * exp(-result_time * alpha / A)
 
-# Number of function evaluations
-num_eval = length(result_time)
+  # Number of function evaluations
+  num_eval <- length(result_time)
 
-# Error at each time step
-analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
+  # Error at each time step
+  analytical_comparison <- abs(analytic_state_at_discrete_time_step - result_state)
 
-# Root-mean-square deviation
-# RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
-# print(paste("The root mean square deviation is:", RMSD))
-# print(paste("The number of evaluations is", num_eval))
-# statesSample = rbind(statesSample,simulation_results$state)
-# timeSample = rbind(timeSample,simulation_results$time)
+  # Root-mean-square deviation
+  # RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
+  # print(paste("The root mean square deviation is:", RMSD))
+  # print(paste("The number of evaluations is", num_eval))
 }
 
-if (!"matrixStats" %in% installed.packages()) {install.packages("matrixStats")}
-library(matrixStats)
-matplot(t(time_numerical_global),t(state_numerical_global),type="l",main="States for all parameter sets",ylab="water level")
-matplot(points_for_evaluation,t(simulation_results_approx),type="l",main="States for all parameter sets",ylab="water level")
+# Plotting the result
+matplot(t(time_numerical_global), t(state_numerical_global), type = "l", main = "States for all parameter sets", ylab = "water level")
+matplot(points_for_evaluation, t(simulation_results_approx), type = "l", main = "States for all parameter sets", ylab = "water level")
+```
 
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting conditional expectation at different time steps
 for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],numerical_sample_global)
-  plot(MPsample[,"tolerance"], MPsample[,"M"], main=paste("Value of tolerance versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondtolerance = linloess(M~tolerance,data=MPsample)
-  points(MPsample[,"tolerance"],Mcondtolerance,pch=20,col="red")
+  MPsample <- cbind(M = simulation_results_approx[, i], numerical_sample_global)
+  plot(MPsample[, "tolerance"], MPsample[, "M"], main = paste("Value of tolerance versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondtolerance <- linloess(M ~ tolerance, data = MPsample)
+  points(MPsample[, "tolerance"], Mcondtolerance, pch = 20, col = "red")
 }
+```
 
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting conditional expectation at different time steps
 for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],numerical_sample_global)
-  plot(MPsample[,"factor"], MPsample[,"M"], main=paste("Value of factor versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondfactor = linloess(M~factor,data=MPsample)
-  points(MPsample[,"factor"],Mcondfactor,pch=20,col="red")
+  MPsample <- cbind(M = simulation_results_approx[, i], numerical_sample_global)
+  plot(MPsample[, "factor"], MPsample[, "M"], main = paste("Value of factor versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondfactor <- linloess(M ~ factor, data = MPsample)
+  points(MPsample[, "factor"], Mcondfactor, pch = 20, col = "red")
 }
+```
 
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting conditional expectation at different time steps
 for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],numerical_sample_global)
-  plot(MPsample[,"dt_start"], MPsample[,"M"], main=paste("Value of dt_start versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mconddt_start = linloess(M~dt_start,data=MPsample)
-  points(MPsample[,"dt_start"],Mconddt_start,pch=20,col="red")
+  MPsample <- cbind(M = simulation_results_approx[, i], numerical_sample_global)
+  plot(MPsample[, "dt_start"], MPsample[, "M"], main = paste("Value of starting dt versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mconddt_start <- linloess(M ~ dt_start, data = MPsample)
+  points(MPsample[, "dt_start"], Mconddt_start, pch = 20, col = "red")
 }
+```
 
-variance_tolerance = c()
-variance_factor = c()
-variance_dt_start = c()
-variance_model = c()
-  
+```{R, animation.hook="gifski", interval = 0.3}
+# Plotting variance contribution of parameters to the model at different time steps as pie charts
+variance_tolerance <- c()
+variance_factor <- c()
+variance_dt_start <- c()
+variance_model <- c()
+
 for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],numerical_sample_global)
-  VARM = var(simulation_results_approx[,i])
-  variance_model = c(variance_model, VARM)
-  SDM = sd(simulation_results_approx[,i])
-  ANOVA1 = sample.vardecomp(MPsample)
-  variance_tolerance = c(variance_tolerance, ANOVA1[[1]])
-  variance_factor = c(variance_factor, ANOVA1[[2]])
-  variance_dt_start = c(variance_dt_start, ANOVA1[[3]])
-  
+  MPsample <- cbind(M = simulation_results_approx[, i], numerical_sample_global)
+  VARM <- var(simulation_results_approx[, i])
+  variance_model <- c(variance_model, VARM)
+  SDM <- sd(simulation_results_approx[, i])
+  ANOVA1 <- sample.vardecomp(MPsample)
+  variance_tolerance <- c(variance_tolerance, ANOVA1[[1]])
+  variance_factor <- c(variance_factor, ANOVA1[[2]])
+  variance_dt_start <- c(variance_dt_start, ANOVA1[[3]])
+
   added_var <- 0
   for (j in c(1:length(ANOVA1))) {
-  added_var <- added_var + ANOVA1[[j]]
-}
+    added_var <- added_var + ANOVA1[[j]]
+  }
   pie(ANOVA1,
-    main=paste("Variance of M =", VARM, "at t =", i-1, 
-               "\nRemaining variance is", VARM - added_var),
+    main = paste(
+      "Variance of M =", VARM, "at t =", i - 1,
+      "\nRemaining variance is", VARM - added_var
+    ),
     col = rainbow(5),
-    radius=1)
+    radius = 1
+  )
 }
+```
 
-if (!"ggplot2" %in% installed.packages()) {install.packages("ggplot2")}
-library(ggplot2)
-
+```{R}
+# Plotting variance contribution of parameters to the model at different time steps as a bar chart
 # create a dataset
 parameters <- (c(rep("tolerance", length(points_for_evaluation) - 1), rep("factor", length(points_for_evaluation) - 1), rep("dt_start", length(points_for_evaluation) - 1), rep("unexplained_variance", length(points_for_evaluation) - 1)))
-variance <- c(abs(variance_tolerance/variance_model), abs(variance_factor/variance_model), abs(variance_dt_start/variance_model), abs((variance_model-variance_tolerance-variance_factor-variance_dt_start)/variance_model))
-time <- c(1:(length(points_for_evaluation)-1),1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1)) 
-data <- data.frame(time, parameters, variance) 
+variance <- c(abs(variance_tolerance / variance_model), abs(variance_factor / variance_model), abs(variance_dt_start / variance_model), abs((variance_model - variance_tolerance - variance_factor - variance_dt_start) / variance_model))
+time <- c(1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1))
+data <- data.frame(time, parameters, variance)
 
 data$parameters <- factor(data$parameters, levels = c("unexplained_variance", "tolerance", "factor", "dt_start"))
 
 # Stacked
-png("gsa_numerical_variance.png", width=900, height=450)
-plot = ggplot(data, aes(fill=parameters, y=variance, x=time)) +
-  geom_bar(position="stack", stat="identity", linewidth=0.3) +
-  ggtitle("Relative ontribution to variance for numerical parameters") +
-  xlab("Time") + 
+# png("gsa_numerical_variance.png", width=900, height=450)
+plot <- ggplot(data, aes(fill = parameters, y = variance, x = time)) +
+  geom_bar(position = "stack", stat = "identity", linewidth = 0.3) +
+  ggtitle("Relative contribution to variance for numerical parameters") +
+  xlab("Time") +
   ylab("Relative contribution to variance")
 print(plot)
-dev.off()
+# dev.off()
+```
+
+#### GSA for both physical and numerical parameters in the same model
+```{R}
+state_both_global <- matrix(0, ncol = length(result_time), nrow = 0)
+time_both_global <- matrix(0, ncol = length(result_time), nrow = 0)
+
+# Define the parameters
+begin_time <- 0
+end_time <- 50
+initial_state <- base_physical_global$initial_state
+A <- base_physical_global$A
+alpha <- base_physical_global$alpha
+tolerance <- base_numerical_global$tolerance
+dt_start <- base_numerical_global$dt_start
+factor <- base_numerical_global$factor
+
+# point to evaluate
+points_for_evaluation <- c(0:50)
+
+simulation_results_approx <- matrix(0, ncol = length(points_for_evaluation), nrow = 0)
+
+# start the for-loop through the parameter sample
+for (i in 1:nrow(both_sample_global))
+{
+  initial_state <- both_sample_global[i, "initial_state"]
+  A <- both_sample_global[i, "A"]
+  alpha <- both_sample_global[i, "alpha"]
+  tolerance <- both_sample_global[i, "tolerance"]
+  factor <- both_sample_global[i, "factor"]
+  dt_start <- both_sample_global[i, "dt_start"]
+
+  # Run the simulation
+  simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+
+  # Extract results for plotting and further analysis
+  result_time <- simulation_results$time
+  result_state <- simulation_results$state
+
+  linear_interpolation <- approxfun(result_time, result_state)
+  simulation_results_approx <- rbind(simulation_results_approx, linear_interpolation(points_for_evaluation))
+
+  # Analytical solution
+  time_sequence <- seq(begin_time, end_time, by = 0.1)
+  analytic_state <- initial_state * exp(-time_sequence * alpha / A)
+
+  # state of analytical solution to compare with numerical solution at every time step
+  analytic_state_at_discrete_time_step <- initial_state * exp(-result_time * alpha / A)
+
+  # Number of function evaluations
+  num_eval <- length(result_time)
+
+  # Error at each time step
+  analytical_comparison <- abs(analytic_state_at_discrete_time_step - result_state)
+
+  # Root-mean-square deviation
+  # RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
+  # print(paste("The root mean square deviation is:", RMSD))
+  # print(paste("The number of evaluations is", num_eval))
+}
+
+# Plotting the result
+matplot(t(time_both_global), t(state_both_global), type = "l", main = "States for all parameter sets", ylab = "water level")
+matplot(points_for_evaluation, t(simulation_results_approx), type = "l", main = "States for all parameter sets", ylab = "water level")
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  plot(MPsample[, "initial_state"], MPsample[, "M"], main = paste("Value of initial state versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondinitial_state <- linloess(M ~ initial_state, data = MPsample)
+  points(MPsample[, "initial_state"], Mcondinitial_state, pch = 20, col = "red")
+}
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  plot(MPsample[, "A"], MPsample[, "M"], main = paste("Value of area versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  McondA <- linloess(M ~ A, data = MPsample)
+  points(MPsample[, "A"], McondA, pch = 20, col = "red")
+}
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  plot(MPsample[, "alpha"], MPsample[, "M"], main = paste("Value of alpha versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondalpha <- linloess(M ~ alpha, data = MPsample)
+  points(MPsample[, "alpha"], Mcondalpha, pch = 20, col = "red")
+}
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  plot(MPsample[, "tolerance"], MPsample[, "M"], main = paste("Value of tolerance versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondtolerance <- linloess(M ~ tolerance, data = MPsample)
+  points(MPsample[, "tolerance"], Mcondtolerance, pch = 20, col = "red")
+}
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  plot(MPsample[, "factor"], MPsample[, "M"], main = paste("Value of factor versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mcondfactor <- linloess(M ~ factor, data = MPsample)
+  points(MPsample[, "factor"], Mcondfactor, pch = 20, col = "red")
+}
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  plot(MPsample[, "dt_start"], MPsample[, "M"], main = paste("Value of starting dt versus model results \nwith conditional expectation at t =", i - 1), ylim = c(0, 3))
+  Mconddt_start <- linloess(M ~ dt_start, data = MPsample)
+  points(MPsample[, "dt_start"], Mconddt_start, pch = 20, col = "red")
+}
+```
+
+```{R, animation.hook="gifski", interval = 0.3}
+variance_initial_state <- c()
+variance_A <- c()
+variance_alpha <- c()
+variance_tolerance <- c()
+variance_factor <- c()
+variance_dt_start <- c()
+variance_model <- c()
+
+for (i in c(2:length(points_for_evaluation))) {
+  MPsample <- cbind(M = simulation_results_approx[, i], both_sample_global)
+  VARM <- var(simulation_results_approx[, i])
+  variance_model <- c(variance_model, VARM)
+  SDM <- sd(simulation_results_approx[, i])
+  ANOVA1 <- sample.vardecomp(MPsample)
+  variance_initial_state <- c(variance_initial_state, ANOVA1[[1]])
+  variance_A <- c(variance_A, ANOVA1[[2]])
+  variance_alpha <- c(variance_alpha, ANOVA1[[3]])
+  variance_tolerance <- c(variance_tolerance, ANOVA1[[4]])
+  variance_factor <- c(variance_factor, ANOVA1[[5]])
+  variance_dt_start <- c(variance_dt_start, ANOVA1[[6]])
+
+  added_var <- 0
+  for (j in c(1:length(ANOVA1))) {
+    added_var <- added_var + ANOVA1[[j]]
+  }
+  pie(ANOVA1,
+    main = paste(
+      "Variance of M =", VARM, "at t =", i - 1,
+      "\nRemaining variance is", VARM - added_var
+    ),
+    col = rainbow(5),
+    radius = 1
+  )
+}
 ```
 
 
 ```{R}
-# GSA for both physical and numerical parameters
-
-state_both_global = matrix(0,ncol=length(result_time),nrow=0)
-time_both_global = matrix(0,ncol=length(result_time),nrow=0)
-
-# Define the parameters
-begin_time = 0
-end_time = 50
-initial_state = base_physical_global$initial_state
-A = base_physical_global$A
-alpha = base_physical_global$alpha
-tolerance = base_numerical_global$tolerance
-dt_start = base_numerical_global$dt_start
-factor = base_numerical_global$factor
-
-# point to evaluate
-points_for_evaluation = c(0:50)
-
-simulation_results_approx = matrix(0,ncol=length(points_for_evaluation),nrow=0)
-
-base_both_global = list(initial_state=initial_state, A = A, alpha = alpha, tolerance = tolerance, factor = factor, dt_start = dt_start)
-scale_both_global = list(initial_state= 0.05 * initial_state, A = 0.05 * A, alpha = 0.05 * alpha, tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
-scale_numerical_global = list(tolerance = 1 * tolerance, factor = 0.1 * factor, dt_start = 1 * dt_start)
-
-both_names_global = names(base_both_global)
-both_means_global = unlist(base_both_global)
-both_sds_global    = unlist(scale_both_global)
-
-both_lower_global = c(2, 3.5, 1, 0.0005, 0.5, 0.01)
-both_upper_global = c(4, 4.5, 2, 0.05, 0.99, 20)
-
-
-samplesize = 1000
-set.seed(237)
-
-both_sample_global = GaussianLHS(samplesize,both_means_global,both_sds_global,both_names_global,both_lower_global,both_upper_global) 
-
-
-# start the for-loop through the parameter sample 
-for(i in 1:nrow(both_sample_global))
-  {
-    initial_state = both_sample_global[i,"initial_state"]
-    A = both_sample_global[i,"A"] 
-    alpha = both_sample_global[i,"alpha"]
-    tolerance = both_sample_global[i,"tolerance"]
-    factor = both_sample_global[i,"factor"]
-    dt_start = both_sample_global[i,"dt_start"]
-    
-# Run the simulation
-simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_heuns_reservoir, calculate_euler_forward_reservoir)
-
-# Extract results for plotting and further analysis
-result_time = simulation_results$time 
-result_state = simulation_results$state
-
-linear_interpolation = approxfun(result_time, result_state)
-simulation_results_approx = rbind(simulation_results_approx,linear_interpolation(points_for_evaluation))
-
-# Analytical solution
-time_sequence = seq(begin_time,end_time, by=0.1)
-analytic_state=initial_state * exp(-time_sequence*alpha/A)
-
-# state of analytical solution to compare with numerical solution at every time step
-analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
-
-# Plotting
-# plot(result_time, result_state,type='o', xlab="time", ylab="state", col="blue")
-# lines(result_time, analytic_state_at_discrete_time_step, col='grey', lwd=2)
-# title(main='Emptying reservoir')
-# grid()
-
-# Number of function evaluations
-num_eval = length(result_time)
-
-# Error at each time step
-analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
-
-# Root-mean-square deviation
-# RMSD = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
-# print(paste("The root mean square deviation is:", RMSD))
-# print(paste("The number of evaluations is", num_eval))
-# statesSample = rbind(statesSample,simulation_results$state)
-# timeSample = rbind(timeSample,simulation_results$time)
-}
-
-if (!"matrixStats" %in% installed.packages()) {install.packages("matrixStats")}
-library(matrixStats)
-matplot(t(time_both_global),t(state_both_global),type="l",main="States for all parameter sets",ylab="water level")
-matplot(points_for_evaluation,t(simulation_results_approx),type="l",main="States for all parameter sets",ylab="water level")
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  plot(MPsample[,"initial_state"], MPsample[,"M"], main=paste("Value of initial state versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondinitial_state = linloess(M~initial_state,data=MPsample)
-  points(MPsample[,"initial_state"],Mcondinitial_state,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  plot(MPsample[,"A"], MPsample[,"M"], main=paste("Value of A versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  McondA = linloess(M~A,data=MPsample)
-  points(MPsample[,"A"],McondA,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  plot(MPsample[,"alpha"], MPsample[,"M"], main=paste("Value of alpha versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondalpha = linloess(M~alpha,data=MPsample)
-  points(MPsample[,"alpha"],Mcondalpha,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  plot(MPsample[,"tolerance"], MPsample[,"M"], main=paste("Value of tolerance versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondtolerance = linloess(M~tolerance,data=MPsample)
-  points(MPsample[,"tolerance"],Mcondtolerance,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  plot(MPsample[,"factor"], MPsample[,"M"], main=paste("Value of factor versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mcondfactor = linloess(M~factor,data=MPsample)
-  points(MPsample[,"factor"],Mcondfactor,pch=20,col="red")
-}
-
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  plot(MPsample[,"dt_start"], MPsample[,"M"], main=paste("Value of dt_start versus model results with conditional expectation at t =", i-1), ylim = c(0,3))
-  Mconddt_start = linloess(M~dt_start,data=MPsample)
-  points(MPsample[,"dt_start"],Mconddt_start,pch=20,col="red")
-}
-variance_initial_state = c()
-variance_A = c()
-variance_alpha = c()
-variance_tolerance = c()
-variance_factor = c()
-variance_dt_start = c()
-
-variance_model = c()
-
-  
-for (i in c(2:length(points_for_evaluation))) {
-  MPsample = cbind(M=simulation_results_approx[,i],both_sample_global)
-  VARM = var(simulation_results_approx[,i])
-  variance_model = c(variance_model, VARM)
-  SDM = sd(simulation_results_approx[,i])
-  ANOVA1 = sample.vardecomp(MPsample)
-  variance_initial_state = c(variance_initial_state, ANOVA1[[1]])
-  variance_A = c(variance_A, ANOVA1[[2]])
-  variance_alpha = c(variance_alpha, ANOVA1[[3]])
-  variance_tolerance = c(variance_tolerance, ANOVA1[[4]])
-  variance_factor = c(variance_factor, ANOVA1[[5]])
-  variance_dt_start = c(variance_dt_start, ANOVA1[[6]])
-  
-  added_var <- 0
-  for (j in c(1:length(ANOVA1))) {
-  added_var <- added_var + ANOVA1[[j]]
-}
-  pie(ANOVA1,
-    main=paste("Variance of M =", VARM, "at t =", i-1, 
-               "\nRemaining variance is", VARM - added_var),
-    col = rainbow(5),
-    radius=1)
-}
-
-if (!"ggplot2" %in% installed.packages()) {install.packages("ggplot2")}
-library(ggplot2)
-
 # create a dataset
 parameters <- (c(rep("initial_state", length(points_for_evaluation) - 1), rep("A", length(points_for_evaluation) - 1), rep("alpha", length(points_for_evaluation) - 1), rep("tolerance", length(points_for_evaluation) - 1), rep("factor", length(points_for_evaluation) - 1), rep("dt_start", length(points_for_evaluation) - 1), rep("unexplained_variance", length(points_for_evaluation) - 1)))
-variance <- c(abs(variance_initial_state/variance_model), abs(variance_A/variance_model), abs(variance_alpha/variance_model),abs(variance_tolerance/variance_model), abs(variance_factor/variance_model), abs(variance_dt_start/variance_model), abs((variance_model-variance_initial_state-variance_A-variance_alpha-variance_tolerance-variance_factor-variance_dt_start)/variance_model))
-time <- c(1:(length(points_for_evaluation)-1),1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1), 1:(length(points_for_evaluation)-1)) 
-data <- data.frame(time, parameters, variance) 
+variance <- c(abs(variance_initial_state / variance_model), abs(variance_A / variance_model), abs(variance_alpha / variance_model), abs(variance_tolerance / variance_model), abs(variance_factor / variance_model), abs(variance_dt_start / variance_model), abs((variance_model - variance_initial_state - variance_A - variance_alpha - variance_tolerance - variance_factor - variance_dt_start) / variance_model))
+time <- c(1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1), 1:(length(points_for_evaluation) - 1))
+data <- data.frame(time, parameters, variance)
 
 # Stacked
 # data$parameters = relevel(data$parameters, 'unexplained_variance')
 data$parameters <- factor(data$parameters, levels = c("unexplained_variance", "initial_state", "A", "alpha", "tolerance", "factor", "dt_start"))
 
-png("gsa_both_variance.png", width=900, height=450)
-plot = ggplot(data, aes(fill=parameters, y=variance, x=time)) +
-  geom_bar(position="stack", stat="identity", linewidth=0.3) +
-  ggtitle("Relative ontribution to variance for physical and numerical parameters") +
-  xlab("Time") + 
+# png("gsa_both_variance.png", width=900, height=450)
+plot <- ggplot(data, aes(fill = parameters, y = variance, x = time)) +
+  geom_bar(position = "stack", stat = "identity", linewidth = 0.3) +
+  ggtitle("Relative contribution to variance for physical and numerical parameters") +
+  xlab("Time") +
   ylab("Relative contribution to variance")
 print(plot)
-dev.off()
-# 
-# temp_data = data.frame(time = c(1:(length(points_for_evaluation)-1)), model_variance = variance_model)
-# ggplot(temp_data,  aes(y=model_variance, x=time)) +
-#   geom_line()
-
-
+# dev.off()
 ```
 
 
+### Variable time-stepping Hupsel
+```{r}
+## loading input and observed data
+hupsel_dat <- read.table(file = "hupsel.dat")
+hupsel_time <- hupsel_dat$V1
+hupsel_Qin <- hupsel_dat$V2
+hupsel_Qobs <- hupsel_dat$V3
 
-#variable time-stepping Hupsel
-```{r, eval=FALSE}
-##loading input and observed data
-hupsel_dat = read.table(file='hupsel.dat')
-hupsel_time = hupsel_dat$V1
-hupsel_Qin = hupsel_dat$V2
-hupsel_Qobs = hupsel_dat$V3
-#to make data continuous for al dt
-approximate_Qin =approxfun(x=hupsel_time,y=hupsel_Qin,rule=2:2) 
-approximate_Qobs = approxfun(x=hupsel_time,y=hupsel_Qobs,rule = 2:2)
-
+# to make data continuous for al dt
+approximate_Qin <- approxfun(x = hupsel_time, y = hupsel_Qin, rule = 2:2)
+approximate_Qobs <- approxfun(x = hupsel_time, y = hupsel_Qobs, rule = 2:2)
 
 # Load custom functions for Hupsel
 source("hupsel_functions.R")
 
+## time aspects
+begin_time <- 0 # begin time of the simulation
+end_time <- tail(hupsel_time, 1) # end time of the simulation
+dt_start <- 1 # 1.0#.5 #delta t; time discretisation
 
-#####Calculation of the Qout fluxes
+# reservoir parameters
+res_alpha_lw <- 0.18
+res_alpha_up <- 0.4
+res_lvl_up <- 0.9 # 1.7
+res_A <- 1.6
+
+init_state <- 0.5 # the initial state of the linear reservoir
+
+tolerance <- 10^-5
+factor <- 0.9
+iterations <- 0
+
+simulation_hepsel_results <- simulate_hupsel(begin_time, end_time, dt_start, init_state, res_A, res_alpha_lw, res_alpha_up, res_lvl_up, factor, tolerance, calculate_rk4_hupsel, calculate_rk5_hupsel)
+
+water_level_above_upper <- calculate_water_level_above_upper(res_lvl_up, simulation_hepsel_results)
+Qout_upper <- water_level_above_upper
+IQout <- which(water_level_above_upper > 0)
+Qout_upper[IQout] <- res_alpha_up * (Qout_upper[IQout] - res_lvl_up)
 
 
-##time aspects
-begin_time   = 0              #begin time of the simulation
-end_time = tail(hupsel_time, 1) #end time of the simulation
-dt_start     = 2           #1.0#.5 #delta t; time discretisation
+# Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
 
-#reservoir parameters
-res_alpha_lw = 0.10543215 
-res_alpha_up = 0.75
-res_lvl_up   = 0.4            #1.7
-res_A        = 1.45 
-
-init_state   = 0.5            #the initial state of the linear reservoir
-
-tolerance = 10^-4
-factor = 0.8
-iterations = 0
-
-simulation_hepsel_results = simulate_hupsel(begin_time, end_time, dt_start, init_state, res_A, res_alpha_lw, res_alpha_up, res_lvl_up, factor, tolerance, calculate_euler_forward_hupsel, calculate_heuns_hupsel)
-
-  water_level_above_upper =calculate_water_level_above_upper(res_lvl_up)  
-  Qout_upper = water_level_above_upper
-  IQout = which(water_level_above_upper>0)
-  Qout_upper[IQout] = res_alpha_up*(Qout_upper[IQout]-res_lvl_up) 
- 
-  
-#   Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
-
-Qout_lower = c()
-Qout_lower = res_alpha_lw*simulation_hepsel_results$state
+Qout_lower <- c()
+Qout_lower <- res_alpha_lw * simulation_hepsel_results$state
 # Qout.lw = res.A*res.k.lw*result.state
 
-##balance
-##dV/dt = Qin - Qout.lw - Qout.up
-##dV/dt = state*res.A/dt
-nrsteps = length(simulation_hepsel_results$state)-1
-dVdt = diff(simulation_hepsel_results$state)*res_A/dt_start # unsure, was dt before
-Qin = approximate_Qin(simulation_hepsel_results$time)
-error = Qin[1:nrsteps] - Qout_lower[1:nrsteps] - Qout_upper[1:nrsteps] - dVdt
- 
-plot(simulation_hepsel_results$time,Qin,type = 'l',
-     ylim=c(min(Qin,Qout_lower,Qout_upper,dVdt),max(Qin,Qout_lower,Qout_upper,dVdt)),
-     ylab = 'L^3/T',xlab = 'time')
-legend('topleft',c('Qin : black',
-                 'Qout.lw : blue',
-                 'Qout.up : green',
-                 'dVdt: red',
-                 'error : dashed'))
+## balance
+## dV/dt = Qin - Qout.lw - Qout.up
+## dV/dt = state*res.A/dt
+nrsteps <- length(simulation_hepsel_results$state) - 1
+dVdt <- diff(simulation_hepsel_results$state) * res_A / dt_start # unsure, was dt before
+Qin <- approximate_Qin(simulation_hepsel_results$time)
+error <- Qin[1:nrsteps] - Qout_lower[1:nrsteps] - Qout_upper[1:nrsteps] - dVdt
 
-     
-lines(simulation_hepsel_results$time[1:nrsteps],dVdt,col='red')
-lines(simulation_hepsel_results$time[1:nrsteps],Qout_lower[1:nrsteps],col='blue')
-lines(simulation_hepsel_results$time[1:nrsteps],Qout_upper[1:nrsteps],col='green')
-lines(simulation_hepsel_results$time[1:nrsteps],error,lty='dashed')
+plot(simulation_hepsel_results$time, Qin,
+  type = "l",
+  ylim = c(min(Qin, Qout_lower, Qout_upper, dVdt), max(Qin, Qout_lower, Qout_upper, dVdt)),
+  ylab = "L^3/T", xlab = "time"
+)
+legend("topleft", c(
+  "Qin : black",
+  "Qout.lw : blue",
+  "Qout.up : green",
+  "dVdt: red",
+  "error : dashed"
+))
 
-##results observed vs computed
-plot(simulation_hepsel_results$time[1:nrsteps],approximate_Qobs(simulation_hepsel_results$time[1:nrsteps]),type='l',
-     lwd=2,col='grey',ylim=c(min(hupsel_Qobs,Qout_lower,Qout_upper),max(hupsel_Qobs,Qout_lower,Qout_upper)),
-     ylab = 'Qout.obs/Qout.calc',xlab = 'time')
-lines(simulation_hepsel_results$time[1:nrsteps],Qout_upper[1:nrsteps]+Qout_lower[1:nrsteps],col='blue')
+lines(simulation_hepsel_results$time[1:nrsteps], dVdt, col = "red")
+lines(simulation_hepsel_results$time[1:nrsteps], Qout_lower[1:nrsteps], col = "blue")
+lines(simulation_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps], col = "green")
+lines(simulation_hepsel_results$time[1:nrsteps], error, lty = "dashed")
 
-RMSE = sqrt(mean((approximate_Qobs(simulation_hepsel_results$time)-(Qout_upper+Qout_lower))^2))
-mean_obs = mean(approximate_Qobs(simulation_hepsel_results$time))
-obs_var = sum((approximate_Qobs(simulation_hepsel_results$time) - mean_obs)^2)
-NSE = 1-(sum((approximate_Qobs(simulation_hepsel_results$time)-(Qout_upper+Qout_lower))^2)/obs_var)
-title(main=paste('Original time-stepping','RMSE = ',round(RMSE,digits=3), '\n NSE = ', round(NSE, digits = 2)))
+## results observed vs computed
+plot(simulation_hepsel_results$time[1:nrsteps], approximate_Qobs(simulation_hepsel_results$time[1:nrsteps]),
+  type = "l",
+  lwd = 2, col = "grey", ylim = c(min(hupsel_Qobs, Qout_lower, Qout_upper), max(hupsel_Qobs, Qout_lower, Qout_upper)),
+  ylab = "Qout.obs/Qout.calc", xlab = "time"
+)
+lines(simulation_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps] + Qout_lower[1:nrsteps], col = "blue")
 
+RMSE <- sqrt(mean((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
+mean_obs <- mean(approximate_Qobs(simulation_hepsel_results$time))
+obs_var <- sum((approximate_Qobs(simulation_hepsel_results$time) - mean_obs)^2)
+NSE <- 1 - (sum((approximate_Qobs(simulation_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
+title(main = paste("Original time-stepping", "RMSE = ", round(RMSE, digits = 2), "\n NSE = ", round(NSE, digits = 2)))
+```
+
+### Fixed time-stepping Hupsel
+```{r}
+## loading input and observed data
+hupsel_dat <- read.table(file = "hupsel.dat")
+hupsel_time <- hupsel_dat$V1
+hupsel_Qin <- hupsel_dat$V2
+hupsel_Qobs <- hupsel_dat$V3
+# to make data continuous for al dt
+approximate_Qobs <- approxfun(x = hupsel_time, y = hupsel_Qin, rule = 2:2)
+approximate_Qobs <- approxfun(x = hupsel_time, y = hupsel_Qobs, rule = 2:2)
+
+# Load custom functions for Hupsel
+source("hupsel_functions.R")
+
+## time aspects
+begin_time <- 0 # begin time of the simulation
+end_time <- tail(hupsel_time, 1) # end time of the simulation
+dt <- 4 # 1.0#.5 #delta t; time discretisation
+
+# reservoir parameters
+res_alpha_lw <- 0.18
+res_alpha_up <- 0.4
+res_lvl_up <- 0.9 # 1.7
+res_A <- 1.6
+
+init_state <- 0.5 # the initial state of the linear reservoir
+
+simulation_fixed_hepsel_results <- simulate_fixed_hupsel(begin_time, end_time, dt, init_state, res_A, res_alpha_lw, res_alpha_up, res_lvl_up)
+
+water_level_above_upper <- calculate_water_level_above_upper(res_lvl_up, simulation_fixed_hepsel_results)
+Qout_upper <- water_level_above_upper
+IQout <- which(water_level_above_upper > 0)
+Qout_upper[IQout] <- res_alpha_up * (Qout_upper[IQout] - res_lvl_up)
+
+# Qout.up = res.alpha.up*(state.above[state.above>0]-res.lvl.up)
+
+Qout_lower <- c()
+Qout_lower <- res_alpha_lw * simulation_fixed_hepsel_results$state
+# Qout.lw = res.A*res.k.lw*result.state
+
+## balance
+## dV/dt = Qin - Qout.lw - Qout.up
+## dV/dt = state*res.A/dt
+nrsteps <- length(simulation_fixed_hepsel_results$state) - 1
+dVdt <- diff(simulation_fixed_hepsel_results$state) * res_A / dt
+Qin <- approximate_Qobs(simulation_fixed_hepsel_results$time)
+error <- Qin[1:nrsteps] - Qout_lower[1:nrsteps] - Qout_upper[1:nrsteps] - dVdt
+
+plot(simulation_fixed_hepsel_results$time, Qin,
+  type = "l",
+  ylim = c(min(Qin, Qout_lower, Qout_upper, dVdt), max(Qin, Qout_lower, Qout_upper, dVdt)),
+  ylab = "L^3/T", xlab = "time"
+)
+legend("topleft", c(
+  "Qin : black",
+  "Qout.lw : blue",
+  "Qout.up : green",
+  "dVdt: red",
+  "error : dashed"
+))
+
+lines(simulation_fixed_hepsel_results$time[1:nrsteps], dVdt, col = "red")
+lines(simulation_fixed_hepsel_results$time[1:nrsteps], Qout_lower[1:nrsteps], col = "blue")
+lines(simulation_fixed_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps], col = "green")
+lines(simulation_fixed_hepsel_results$time[1:nrsteps], error, lty = "dashed")
+
+## results observed vs computed
+plot(simulation_fixed_hepsel_results$time[1:nrsteps], approximate_Qobs(simulation_fixed_hepsel_results$time[1:nrsteps]),
+  type = "l",
+  lwd = 2, col = "grey", ylim = c(min(hupsel_Qobs, Qout_lower, Qout_upper), max(hupsel_Qobs, Qout_lower, Qout_upper)),
+  ylab = "Qout_obs/Qout_calc", xlab = "time"
+)
+lines(simulation_fixed_hepsel_results$time[1:nrsteps], Qout_upper[1:nrsteps] + Qout_lower[1:nrsteps], col = "blue")
+
+RMSE <- sqrt(mean((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2))
+mean_obs <- mean(approximate_Qobs(simulation_fixed_hepsel_results$time))
+obs_var <- sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - mean_obs)^2)
+NSE <- 1 - (sum((approximate_Qobs(simulation_fixed_hepsel_results$time) - (Qout_upper + Qout_lower))^2) / obs_var)
+title(main = paste("Fixed time-stepping", "\n RMSE = ", round(RMSE, digits = 3), " NSE = ", round(NSE, digits = 2)))
 ```
 
 ```{r, eval=FALSE}
-# Approxfunction 
-approx_time = c(1:50)
+# Approxfunction
+approx_time <- c(1:50)
 
 # Run the simulation
-base_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+base_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
-# Determine number of evaluration and runs needed 
-base_num_eval = length(base_simulation_results$time)
+# state of analytical solution
+analyt.state <- initial_state * exp(-base_simulation_results$time * alpha / A)
+
+# Determine number of evaluration and runs needed
+base_num_eval <- length(base_simulation_results$time)
 print(paste("Number of evaluations for base=", base_num_eval))
-print(paste("Number of runs for base=",base_simulation_results$runs))
+print(paste("Number of runs for base=", base_simulation_results$runs))
 
-# Appromixate the function 
-approx_fun_base = approxfun(base_simulation_results$time,base_simulation_results$state)
-approx_base_results = approx_fun_base(approx_time)
+# Appromixate the function
+approx_fun_base <- approxfun(base_simulation_results$time, base_simulation_results$state)
+approx_base_results <- approx_fun_base(approx_time)
 
 ## ------------------------------ LOCAL SENSITIVTY ANALYSIS ------------------------------- ##
 
-# Base 
-base= list(initial_state = initial_state,A=A,alpha=alpha,tolerance=tolerance,factor=factor, dt_start = dt_start)
+# Base
+base <- list(initial_state = initial_state, A = A, alpha = alpha, tolerance = tolerance, factor = factor, dt_start = dt_start)
 str(base)
 
 # define scale of variation # dt_start?
-scale= list(initial_state = 0.05 *initial_state,
-            A = 0.05 * A,
-            alpha = 0.05 * alpha,
-            tolerance = 0.05 * tolerance,
-            factor = 0.05*factor, 
-            dt_start = 0.005 * dt_start)
+scale <- list(
+  initial_state = 0.05 * initial_state,
+  A = 0.05 * A,
+  alpha = 0.05 * alpha,
+  tolerance = 0.05 * tolerance,
+  factor = 0.05 * factor,
+  dt_start = 0.005 * dt_start
+)
 
-#Define an epsion value 
-eps = 1e-3
+# Define an epsion value
+eps <- 1e-3
 
 ## ---------------------------- INITIAL VALUE ------------------------------------##
 
 # Sensitivity of init.state
-initial_state=base$initial_state+eps*base$initial_state
+initial_state <- base$initial_state + eps * base$initial_state
 
-# Run model 
-sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+# Run model
+sens_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 ## approximate function
-approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
-approx_sens_results = approx_fun_sens(approx_time)
+approx_fun_sens <- approxfun(sens_simulation_results$time, sens_simulation_results$state)
+approx_sens_results <- approx_fun_sens(approx_time)
 
 ## Caputre number of runs and evaluations
-num_eval_initial_state = length(sens_simulation_results$time)
+num_eval_initial_state <- length(sens_simulation_results$time)
 print(paste("Number of evaluations for intial value=", num_eval_initial_state))
-runs_intial_value = sens_simulation_results$runs
-print(paste("Number of runs for initial value=",sens_simulation_results$runs))
+runs_intial_value <- sens_simulation_results$runs
+print(paste("Number of runs for initial value=", sens_simulation_results$runs))
 
-# Reset the base values 
-initial_state=base$initial_state
+# Reset the base values
+initial_state <- base$initial_state
 
-#Find the local slope for the states
-dStates_dinitstate = (approx_sens_results - approx_base_results)/(eps*base$initial_state)
-#Plot 
-plot(approx_time,dStates_dinitstate,type="l",lwd=3,col="blue",main="d{state}/d{init.state}")
-abline(h=0,col="red",lwd=3)
-grid(col="black")
+# Find the local slope for the states
+dStates_dinitstate <- (approx_sens_results - approx_base_results) / (eps * base$initial_state)
 # Plot
-plot(sens_simulation_results$time, sens_simulation_results$state,type='o', xlab="time", ylab="state")
-lines(base_simulation_results$time, analyt.state, col='grey', lwd=2)
-title(main='Emptying reservoir')
+plot(approx_time, dStates_dinitstate, type = "l", lwd = 3, col = "blue", main = "d{state}/d{init.state}")
+abline(h = 0, col = "red", lwd = 3)
+grid(col = "black")
+# Plot
+plot(sens_simulation_results$time, sens_simulation_results$state, type = "o", xlab = "time", ylab = "state")
+lines(base_simulation_results$time, analyt.state, col = "grey", lwd = 2)
+title(main = "Emptying reservoir")
 grid()
 
 ## ---------------------------- ALPHA ------------------------------------##
 
 # Sensitivity of init.state
-alpha=base$alpha+eps*base$alpha
+alpha <- base$alpha + eps * base$alpha
 
-# Run model 
-sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start,initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+# Run model
+sens_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 ## approximate function
-approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
-approx_sens_results = approx_fun_sens(approx_time)
+approx_fun_sens <- approxfun(sens_simulation_results$time, sens_simulation_results$state)
+approx_sens_results <- approx_fun_sens(approx_time)
 
-# Number of runs 
-num_eval_alpha = length(sens_simulation_results$time)
+# Number of runs
+num_eval_alpha <- length(sens_simulation_results$time)
 print(paste("Number of evaluations for alpha =", num_eval_alpha))
-runs_alpha = sens_simulation_results$runs
-print(paste("Number of runs for alpha =",runs_alpha))
+runs_alpha <- sens_simulation_results$runs
+print(paste("Number of runs for alpha =", runs_alpha))
 
-# Reset the base values 
-alpha=base$alpha
+# Reset the base values
+alpha <- base$alpha
 
-#Find the local slope for the states
-dStates_dAlpha  = (approx_sens_results - approx_base_results)/(eps*base$alpha)
+# Find the local slope for the states
+dStates_dAlpha <- (approx_sens_results - approx_base_results) / (eps * base$alpha)
 
-#Plot 
-plot(approx_time,dStates_dAlpha,type="l",lwd=3,col="blue",main="d{state}/d{Alpha}")
-abline(h=0,col="red",lwd=3)
-grid(col="black")
+# Plot
+plot(approx_time, dStates_dAlpha, type = "l", lwd = 3, col = "blue", main = "d{state}/d{Alpha}")
+abline(h = 0, col = "red", lwd = 3)
+grid(col = "black")
 
 ## ---------------------------- A ------------------------------------##
 
 # Sensitivity of init.state
-A=base$A+eps*base$A
+A <- base$A + eps * base$A
 
-# Run model 
-sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start,initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+# Run model
+sens_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 ## approximate function
-approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
-approx_sens_results = approx_fun_sens(approx_time)
+approx_fun_sens <- approxfun(sens_simulation_results$time, sens_simulation_results$state)
+approx_sens_results <- approx_fun_sens(approx_time)
 
-# Number of runs 
-num_eval_A = length(sens_simulation_results$time)
-print(paste("Number of evaluations for A=", num_eval_A ))
-runs_A = sens_simulation_results$runs
-print(paste("Number of runs for A =",runs_A))
+# Number of runs
+num_eval_A <- length(sens_simulation_results$time)
+print(paste("Number of evaluations for A=", num_eval_A))
+runs_A <- sens_simulation_results$runs
+print(paste("Number of runs for A =", runs_A))
 
-# Reset the base values 
-A=base$A
+# Reset the base values
+A <- base$A
 
-#Find the local slope for the states
-dStates_dA = (approx_sens_results - approx_base_results)/(eps*base$A)
+# Find the local slope for the states
+dStates_dA <- (approx_sens_results - approx_base_results) / (eps * base$A)
 
-#Plot 
-plot(approx_time,dStates_dA,type="l",lwd=3,col="blue",main="d{state}/d{A}")
-abline(h=0,col="red",lwd=3)
-grid(col="black")
+# Plot
+plot(approx_time, dStates_dA, type = "l", lwd = 3, col = "blue", main = "d{state}/d{A}")
+abline(h = 0, col = "red", lwd = 3)
+grid(col = "black")
 
 
 ## ---------------------------- TOLERANCE ------------------------------------##
 
 # Sensitivity of init.state
-tolerance =base$tolerance +eps*base$tolerance 
+tolerance <- base$tolerance + eps * base$tolerance
 
-# Run model 
-sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+# Run model
+sens_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 ## approximate function
-approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
-approx_sens_results = approx_fun_sens(approx_time)
+approx_fun_sens <- approxfun(sens_simulation_results$time, sens_simulation_results$state)
+approx_sens_results <- approx_fun_sens(approx_time)
 
-# Number of runs 
-num_eval_tolerance = length(sens_simulation_results$time)
+# Number of runs
+num_eval_tolerance <- length(sens_simulation_results$time)
 print(paste("Number of evaluations for A=", num_eval_tolerance))
-runs_tolerance = sens_simulation_results$runs
-print(paste("Number of runs for tolerance =",runs_tolerance))
+runs_tolerance <- sens_simulation_results$runs
+print(paste("Number of runs for tolerance =", runs_tolerance))
 
-# Reset the base values 
-tolerance =base$tolerance 
+# Reset the base values
+tolerance <- base$tolerance
 
-#Find the local slope for the states
-dStates_dTolerance = (approx_sens_results - approx_base_results)/(eps*base$tolerance )
+# Find the local slope for the states
+dStates_dTolerance <- (approx_sens_results - approx_base_results) / (eps * base$tolerance)
 
-#Plot 
-plot(approx_time,dStates_dTolerance,type="l",lwd=3,col="blue",main="d{state}/d{tolerance}")
-abline(h=0,col="red",lwd=3)
-grid(col="black")
+# Plot
+plot(approx_time, dStates_dTolerance, type = "l", lwd = 3, col = "blue", main = "d{state}/d{tolerance}")
+abline(h = 0, col = "red", lwd = 3)
+grid(col = "black")
 
 ## ---------------------------- factor ------------------------------------##
 
 # Sensitivity of init.state
-factor =base$factor + eps*base$factor 
+factor <- base$factor + eps * base$factor
 
-# Run model 
-sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, tolerance, factor, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+# Run model
+sens_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, tolerance, factor, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 ## approximate function
-approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
-approx_sens_results = approx_fun_sens(approx_time)
+approx_fun_sens <- approxfun(sens_simulation_results$time, sens_simulation_results$state)
+approx_sens_results <- approx_fun_sens(approx_time)
 
-# Number of factor 
-num_eval_factor = length(sens_simulation_results$time)
-print(paste("Number of evaluations for factor=", num_eval_factor ))
-runs_factor = sens_simulation_results$runs
-print(paste("Number of runs for factor =",runs_factor))
+# Number of factor
+num_eval_factor <- length(sens_simulation_results$time)
+print(paste("Number of evaluations for factor=", num_eval_factor))
+runs_factor <- sens_simulation_results$runs
+print(paste("Number of runs for factor =", runs_factor))
 
-# Reset the base values 
-factor =base$factor 
+# Reset the base values
+factor <- base$factor
 
-#Find the local slope for the states
-dStates_dfactor = (approx_sens_results - approx_base_results)/(eps*base$factor)
+# Find the local slope for the states
+dStates_dfactor <- (approx_sens_results - approx_base_results) / (eps * base$factor)
 
-#Plot 
-plot(approx_time,dStates_dfactor,type="l",lwd=3,col="blue",main="d{state}/d{factor}")
-abline(h=0,col="red",lwd=3)
-grid(col="black")
+# Plot
+plot(approx_time, dStates_dfactor, type = "l", lwd = 3, col = "blue", main = "d{state}/d{factor}")
+abline(h = 0, col = "red", lwd = 3)
+grid(col = "black")
 
 ## ---------------------------- dt START------------------------------------##
 
 # Sensitivity of init.state
-factor =base$dt_start +eps*base$dt_start 
+factor <- base$dt_start + eps * base$dt_start
 
-# Run model 
-sens_simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, tolerance, factor, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
+# Run model
+sens_simulation_results <- simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, tolerance, factor, calculate_euler_forward_reservoir, calculate_heuns_reservoir)
 
 ## approximate function
-approx_fun_sens =approxfun(sens_simulation_results$time,sens_simulation_results$state)
-approx_sens_results = approx_fun_sens(approx_time)
+approx_fun_sens <- approxfun(sens_simulation_results$time, sens_simulation_results$state)
+approx_sens_results <- approx_fun_sens(approx_time)
 
-# Number of runs 
-num_eval_dt = length(sens_simulation_results$time)
-print(paste("Number of evaluations for dt=", num_eval_dt ))
-runs_dt = sens_simulation_results$runs
-print(paste("Number of runs for dt =",runs_dt))
+# Number of runs
+num_eval_dt <- length(sens_simulation_results$time)
+print(paste("Number of evaluations for dt=", num_eval_dt))
+runs_dt <- sens_simulation_results$runs
+print(paste("Number of runs for dt =", runs_dt))
 
-# Reset the base values 
-dt_start  =base$dt_start  
+# Reset the base values
+dt_start <- base$dt_start
 
-#Find the local slope for the states
-dStates_dDt_start  = (approx_sens_results - approx_base_results)/(eps*base$dt_start)
+# Find the local slope for the states
+dStates_dDt_start <- (approx_sens_results - approx_base_results) / (eps * base$dt_start)
 
-#Plot 
-plot(approx_time,dStates_dDt_start,type="l",lwd=3,col="blue",main="d{state}/d{dt_start}")
-abline(h=0,col="red",lwd=3)
-grid(col="black")
-
+# Plot
+plot(approx_time, dStates_dDt_start, type = "l", lwd = 3, col = "blue", main = "d{state}/d{dt_start}")
+abline(h = 0, col = "red", lwd = 3)
+grid(col = "black")
 ```
 
 ```{r, eval=FALSE}
- ## --------------------------- SENSITIVITY ANALYSIS ------------------------------
+## --------------------------- SENSITIVITY ANALYSIS ------------------------------
 
-varState.initial_state = (scale$initial_state*dStates_dinitstate)^2
-varState.alpha = (scale$alpha*dStates_dAlpha)^2
-varState.A  = (scale$A*dStates_dA)^2
-varState.tolerance= (scale$tolerance*dStates_dTolerance)^2
-varState.factor = (scale$factor*dStates_dfactor)^2
-varState.dt_start = (scale$dt_start*dStates_dDt_start)^2
+varState.initial_state <- (scale$initial_state * dStates_dinitstate)^2
+varState.alpha <- (scale$alpha * dStates_dAlpha)^2
+varState.A <- (scale$A * dStates_dA)^2
+varState.tolerance <- (scale$tolerance * dStates_dTolerance)^2
+varState.factor <- (scale$factor * dStates_dfactor)^2
+varState.dt_start <- (scale$dt_start * dStates_dDt_start)^2
 
-#Separate Physical and Model parameters
-varStateTotPhysical = varState.initial_state + varState.alpha + varState.A
-varStateTotModel = varState.tolerance+ varState.factor + varState.dt_start
+# Separate Physical and Model parameters
+varStateTotPhysical <- varState.initial_state + varState.alpha + varState.A
+varStateTotModel <- varState.tolerance + varState.factor + varState.dt_start
 
-#Plot the scale of variation of the states over the whole domain:
-plot(approx_time,sqrt(varStateTotPhysical),type="l",col="blue",lwd=3,
-     ylab="standard deviation [m]",xlab="x",main="Total scale of variation of water levels")
-grid(col="black")
+# Plot the scale of variation of the states over the whole domain:
+plot(approx_time, sqrt(varStateTotPhysical),
+  type = "l", col = "blue", lwd = 3,
+  ylab = "standard deviation [m]", xlab = "x", main = "Total scale of variation of water levels"
+)
+grid(col = "black")
 
-plot(approx_time,sqrt(varStateTotModel),type="l",col="blue",lwd=3,
-     ylab="standard deviation [m]",xlab="x",main="Total scale of variation of water levels")
-grid(col="black")
+plot(approx_time, sqrt(varStateTotModel),
+  type = "l", col = "blue", lwd = 3,
+  ylab = "standard deviation [m]", xlab = "x", main = "Total scale of variation of water levels"
+)
+grid(col = "black")
 ```
 
 ```{r, eval=FALSE}
-
-### LOCACL SENSITIVTY ANALYSIS: PLOT FIGURES FOR RELATIVE CONTIRBUTION TO VARIANCE 
+### LOCACL SENSITIVTY ANALYSIS: PLOT FIGURES FOR RELATIVE CONTIRBUTION TO VARIANCE
 
 ##   -------------------------- Physical parameters  -----------------------------------  ##
 
 ## Plot with lines
-plot(approx_time,rep(1,length(approx_time)),ylim=c(0,1),type="l",
-     ylab="relative contribution to variance",xlab="time",
-     main="Contribution to scale of variation of groundwater levels")
-cols = rainbow(3)
-lines(approx_time,varState.initial_state/varStateTotPhysical,col=cols[1],lwd=2)
-lines(approx_time,varState.alpha/varStateTotPhysical,col=cols[2],lwd=2)
-lines(approx_time,varState.A/varStateTotPhysical,col=cols[3],lwd=2)
-legend("center", bty="n",
-   legend=c("Initial state","Alpha","A"),lty=1,col=cols,
-   horiz=TRUE)
+plot(approx_time, rep(1, length(approx_time)),
+  ylim = c(0, 1), type = "l",
+  ylab = "relative contribution to variance", xlab = "time",
+  main = "Contribution to scale of variation of groundwater levels"
+)
+cols <- rainbow(3)
+lines(approx_time, varState.initial_state / varStateTotPhysical, col = cols[1], lwd = 2)
+lines(approx_time, varState.alpha / varStateTotPhysical, col = cols[2], lwd = 2)
+lines(approx_time, varState.A / varStateTotPhysical, col = cols[3], lwd = 2)
+legend("center",
+  bty = "n",
+  legend = c("Initial state", "Alpha", "A"), lty = 1, col = cols,
+  horiz = TRUE
+)
 
-## Plot stacked bar charts 
+## Plot stacked bar charts
 library(ggplot2)
 # create a data set
 condition <- (c(rep("Initial state", length(approx_time)), rep("Alpha", length(approx_time)), rep("A", length(approx_time))))
-value <- c(abs(varState.initial_state/varStateTotPhysical), abs(varState.alpha/varStateTotPhysical), abs(varState.A/varStateTotPhysical))
-data <- data.frame(approx_time,condition,value)
-# Stacked bar chart 
-ggplot(data, aes(fill=condition, y=value, x=approx_time)) + 
-    geom_bar(position="stack", stat="identity", width=0.8) + ggtitle("Relative contribution to variance for physical parameters") + xlab("Time") + ylab("Relative contribution to variance")
+value <- c(abs(varState.initial_state / varStateTotPhysical), abs(varState.alpha / varStateTotPhysical), abs(varState.A / varStateTotPhysical))
+data <- data.frame(approx_time, condition, value)
+# Stacked bar chart
+ggplot(data, aes(fill = condition, y = value, x = approx_time)) +
+  geom_bar(position = "stack", stat = "identity", width = 0.8) +
+  ggtitle("Relative contribution to variance for physical parameters") +
+  xlab("Time") +
+  ylab("Relative contribution to variance")
 
 ##  ------------------------------- Model parameters  -----------------------------------  ##
 
 ## Plot with lines
-plot(approx_time,rep(1,length(approx_time)),ylim=c(0,1),type="l",
-     ylab="relative contribution to variance",xlab="time",
-     main="Contribution to scale of variation of groundwater levels")
-cols = rainbow(3)
-lines(approx_time,varState.tolerance/varStateTotModel,col=cols[1],lwd=2)
-lines(approx_time,varState.factor/varStateTotModel,col=cols[2],lwd=2)
-lines(approx_time,varState.dt_start/varStateTotModel,col=cols[3],lwd=2)
-legend("center", bty="n",
-   legend=c("Tolerance","Factor","Reference dt"),lty=1,col=cols,
-   horiz=TRUE)
+plot(approx_time, rep(1, length(approx_time)),
+  ylim = c(0, 1), type = "l",
+  ylab = "relative contribution to variance", xlab = "time",
+  main = "Contribution to scale of variation of groundwater levels"
+)
+cols <- rainbow(3)
+lines(approx_time, varState.tolerance / varStateTotModel, col = cols[1], lwd = 2)
+lines(approx_time, varState.factor / varStateTotModel, col = cols[2], lwd = 2)
+lines(approx_time, varState.dt_start / varStateTotModel, col = cols[3], lwd = 2)
+legend("center",
+  bty = "n",
+  legend = c("Tolerance", "Factor", "Reference dt"), lty = 1, col = cols,
+  horiz = TRUE
+)
 
 ## Plot with barchart
 library(ggplot2)
 # create a dataset
 condition <- (c(rep("tolerance", length(approx_time)), rep("factor", length(approx_time)), rep("dt start", length(approx_time))))
-value <- c(abs(varState.tolerance/varStateTotModel), abs(varState.factor/varStateTotModel), abs(varState.dt_start/varStateTotModel))
-data <- data.frame(approx_time,condition,value)
+value <- c(abs(varState.tolerance / varStateTotModel), abs(varState.factor / varStateTotModel), abs(varState.dt_start / varStateTotModel))
+data <- data.frame(approx_time, condition, value)
 # Stacked
-ggplot(data, aes(fill=condition, y=value, x=approx_time)) + 
-    geom_bar(position="stack", stat="identity", width=0.8) + ggtitle("Relative contribution to variance for model parameters") + xlab("Time") + ylab("Relative contribution to variance")
-
+ggplot(data, aes(fill = condition, y = value, x = approx_time)) +
+  geom_bar(position = "stack", stat = "identity", width = 0.8) +
+  ggtitle("Relative contribution to variance for model parameters") +
+  xlab("Time") +
+  ylab("Relative contribution to variance")
 ```

@@ -52,18 +52,21 @@ simulate_reservoir = function(begin_time, end_time, dt_start, initial_state, are
   result_state = c(initial_state)
   result_time = c(time)
   current_state = initial_state
+  iterations = 0
   
   # Simulation loop
   while(time < end_time) {
     dt = dt_start
     while (compare_methods_reservoir(current_state, dt, area, alpha, method1, method2) > tolerance) {
+      iterations = iterations + 1
       dt = dt * factor
     }
+    iterations = iterations + 1
     current_state = method1(current_state, dt, area, alpha)
     result_state = c(result_state, current_state)
     time = time + dt
     result_time = c(result_time, time)
   }
   
-  return(list(time = result_time, state = result_state))
+  return(list(time = result_time, state = result_state, iterations = iterations))
 }
