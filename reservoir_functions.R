@@ -170,3 +170,142 @@ simulate_reservoir <- function(begin_time, end_time, dt_start, initial_state, ar
 
   return(list(time = result_time, state = result_state, iterations = iterations))
 }
+
+# Function: simulate_reservoir_fixed
+#
+# Purpose:
+#   Simulates the behavior of an emptying reservoir over a specified time period 
+#   using fixed time-stepping
+#
+# Parameters:
+#   begin_time    - The starting time of the simulation (numeric).
+#   end_time      - The ending time of the simulation (numeric).
+#   dt_start      - The initial time step for the simulation (numeric).
+#   initial_state - The initial state of the reservoir (numeric).
+#   area          - The area parameter of the reservoir (numeric).
+#   alpha         - The decay constant (numeric).
+#   method1       - Function. The numerical method for state calculation.
+#
+# Returns:
+#   A list containing three elements:
+#     - time: A vector of time steps at which the state was calculated (numeric).
+#     - state: A vector of states of the reservoir at each time step (numeric).
+#     - run: the number of runs 
+
+simulate_reservoir_fixed = function(begin_time, end_time, dt_start, initial_state, area, alpha, factor, tolerance, method1) {
+  # Initialize variables
+  time = begin_time
+  result_state = c(initial_state)
+  result_time = c(time)
+  current_state = initial_state
+  runs = 1
+  
+  # Simulation loop
+  while(time < end_time) {
+    dt = dt_start
+    current_state = method1(current_state, dt, area, alpha)
+    result_state = c(result_state, current_state)
+    time = time + dt
+    result_time = c(result_time, time)
+    runs = runs + 1
+  }
+  return(list(time = result_time, state = result_state, runs = runs))
+}
+
+
+# Define an error function
+error_decrease = function(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance,calculate_heuns_reservoir, calculate_euler_forward_reservoir, simulate_reservoir, simulate_reservoir_fixed){
+  
+  # -------------------- PART 1 of function: Find RMSE for variable solution ----------------------- #
+  # at the defined starting dt value 
+  
+  ## Run the simulation for the variable solution for the given starting dt value
+  simulation_results = simulate_reservoir(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance,calculate_heuns_reservoir, calculate_euler_forward_reservoir)
+  
+  # Extract results for plotting and further analysis
+  result_time = simulation_results$time
+  result_state = simulation_results$state
+  result_runs = simulation_results$iterations
+  
+  # Find the number of evaluations
+  num_eval_variable = length(result_time)
+  
+  # Calculate the analytical solution and state at the relevant time-steps
+  time_sequence = seq(begin_time,end_time, by=0.1)
+  analytic_state=initial_state * exp(-time_sequence*alpha/A)
+  analytic_state_at_discrete_time_step=initial_state * exp(-result_time*alpha/A)
+  
+  # Calculate the error at each time step
+  analytical_comparison = abs(analytic_state_at_discrete_time_step - result_state)
+  
+  # Calculate the root-mean-square deviation (RMSD, or RMSE)
+  RMSD_variable = sqrt(sum(analytical_comparison^2)/length(analytical_comparison))
+  
+  # -------------------- PART 2 of function: Find RMSE for variable solution ----------------------- #
+  # at the defined starting dt value 
+  
+  # Run the simulation for the FIXED time-step - using heun's method
+  simulation_results_fixed = simulate_reservoir_fixed(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance,calculate_heuns_reservoir)
+  
+  # Extract results for plotting and further analysis
+  result_time_fixed = simulation_results_fixed$time
+  result_state_fixed = simulation_results_fixed$state
+  
+  # Calculate the analytical solution and state at the relevant time-steps
+  analytic_state_at_discrete_time_step_fixed=initial_state * exp(-result_time_fixed*alpha/A)
+  analytical_comparison_fixed = abs(analytic_state_at_discrete_time_step_fixed - result_state_fixed)
+  
+  # Calculate the root-mean-square deviation (RMSD, or RMSE)
+  RMSD_fixed = sqrt(sum(analytical_comparison_fixed^2)/length(analytical_comparison_fixed))
+  
+  
+  # --------------- PART 3 of function: Compare RMSD and reduce dt of fixed method ------------------- #
+  
+  # Empty vectors to store value from the while loop 
+  dt_fixed_loop = c()
+  evaluations_fixed_loop = c()
+  RMSD_fixed_loop = c()
+  
+  # Set the initial amount of runs to track loops through while loop
+  runs_fixed = 1
+  
+  ### Create while loop to compare RMSE fixed and RMSE variable
+  while (RMSD_fixed > RMSD_variable) {
+    
+    # When condition is fulfilled, reduce the dt_start value 
+    dt_start = dt_start * 0.98
+    
+    # Simulate the fixed stepping with the new dt values 
+    simulation_results_fixed = simulate_reservoir_fixed(begin_time, end_time, dt_start, initial_state, A, alpha, factor, tolerance,calculate_heuns_reservoir)
+    
+    # Extract values for further analysis
+    result_time_fixed = simulation_results_fixed$time
+    result_state_fixed = simulation_results_fixed$state
+    
+    # Calculate the RMSE 
+    analytic_state_at_discrete_time_step_fixed=initial_state * exp(-result_time_fixed*alpha/A)
+    analytical_comparison_fixed = abs(analytic_state_at_discrete_time_step_fixed - result_state_fixed)
+    RMSD_fixed = sqrt(sum(analytical_comparison_fixed^2)/length(analytical_comparison_fixed))
+    
+    # Store values from each iteration into the empty vector
+    dt_fixed_loop = cbind(dt_fixed_loop, dt_start)
+    evaluations_fixed_loop = cbind(evaluations_fixed_loop,length(result_time_fixed) )
+    RMSD_fixed_loop = cbind(RMSD_fixed_loop, RMSD_fixed)
+    
+    # Keep track of the number of loops through the while loop 
+    runs_fixed = runs_fixed + 1
+    
+  }
+  # Store the dt_start that has been adjusted as dt_fixed 
+  dt_fixed = dt_start
+  
+  # Calculate the final number of evaluations 
+  evaluations_fixed = length(result_time_fixed)
+  
+  # Add the last run 
+  runs_fixed = runs_fixed + 1
+  
+  # Return the list of all the relevant variables 
+  return(list(RMSD_fixed = RMSD_fixed, RMSD_variable = RMSD_variable, runs_fixed = runs_fixed, dt_fixed = dt_fixed, runs_variable = result_runs, evaluations_variable = num_eval_variable, evaluations_fixed=evaluations_fixed, dt_fixed_loop  = dt_fixed_loop , evaluations_fixed_loop = evaluations_fixed_loop, RMSD_fixed_loop = RMSD_fixed_loop))
+  
+}
